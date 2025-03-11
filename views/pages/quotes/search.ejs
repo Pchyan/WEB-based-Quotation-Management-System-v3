@@ -1,0 +1,140 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>搜尋結果：<%= query %></h1>
+    <div>
+      <a href="/quotes/create" class="btn btn-primary me-2">
+        <i class="bi bi-plus"></i> 新增報價
+      </a>
+      <a href="/quotes" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回報價列表
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <form action="/quotes/search" method="GET" class="d-flex">
+        <input type="text" class="form-control me-2" name="q" value="<%= query %>" placeholder="搜尋報價單號、客戶名稱或備註...">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-search"></i> 搜尋
+        </button>
+      </form>
+    </div>
+    <div class="card-body p-0">
+      <% if (quotes && quotes.length > 0) { %>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>報價單號</th>
+                <th>客戶</th>
+                <th>日期</th>
+                <th>有效期限</th>
+                <th>總金額</th>
+                <th>狀態</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% quotes.forEach(quote => { %>
+                <tr>
+                  <td><a href="/quotes/view/<%= quote.id %>"><%= quote.quoteNumber %></a></td>
+                  <td><a href="/customers/view/<%= quote.customer.id %>"><%= quote.customer.name %></a></td>
+                  <td><%= formatDate(quote.quoteDate) %></td>
+                  <td><%= formatDate(quote.validUntil) %></td>
+                  <td>$<%= quote.total.toFixed(2) %></td>
+                  <td><span class="badge <%= getStatusBadgeClass(quote.status) %>"><%= getStatusText(quote.status) %></span></td>
+                  <td>
+                    <div class="btn-group btn-group-sm">
+                      <a href="/quotes/view/<%= quote.id %>" class="btn btn-outline-primary">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                      <a href="/quotes/edit/<%= quote.id %>" class="btn btn-outline-secondary">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                      <button type="button" class="btn btn-outline-danger delete-quote-btn" 
+                              data-id="<%= quote.id %>" 
+                              data-number="<%= quote.quoteNumber %>"
+                              data-bs-toggle="modal" 
+                              data-bs-target="#deleteQuoteModal">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="alert alert-info m-3">
+          <i class="bi bi-info-circle"></i> 未找到符合「<%= query %>」的報價單。請嘗試使用不同的關鍵字或檢查拼寫。
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除報價確認模態框 -->
+<div class="modal fade" id="deleteQuoteModal" tabindex="-1" aria-labelledby="deleteQuoteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteQuoteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除報價單 #<span id="quoteNumber"></span> 嗎？此操作無法撤銷。
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteQuoteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 處理刪除報價按鈕
+  document.querySelectorAll('.delete-quote-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const number = this.getAttribute('data-number');
+      
+      document.getElementById('quoteNumber').textContent = number;
+      document.getElementById('deleteQuoteForm').action = `/quotes/delete/${id}`;
+    });
+  });
+  
+  function getStatusBadgeClass(status) {
+    switch(status) {
+      case 'draft': return 'bg-secondary';
+      case 'sent': return 'bg-primary';
+      case 'accepted': return 'bg-success';
+      case 'rejected': return 'bg-danger';
+      default: return 'bg-secondary';
+    }
+  }
+  
+  function getStatusText(status) {
+    switch(status) {
+      case 'draft': return '草稿';
+      case 'sent': return '已發送';
+      case 'accepted': return '已接受';
+      case 'rejected': return '已拒絕';
+      default: return '未知';
+    }
+  }
+  
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-TW');
+  }
+</script>
+
+<%- include('../../partials/footer') %> 

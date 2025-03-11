@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>報價單 #<%= quote.quoteNumber %></title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #333;
+      font-size: 12px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      color: #333;
+    }
+    .header .company-info {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .quote-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
+    .quote-info-box {
+      width: 48%;
+    }
+    .quote-info-box h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 16px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 5px;
+    }
+    .quote-info-box p {
+      margin: 5px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .totals {
+      width: 50%;
+      margin-left: auto;
+    }
+    .totals table {
+      margin-bottom: 10px;
+    }
+    .totals th {
+      width: 60%;
+    }
+    .totals td {
+      width: 40%;
+    }
+    .grand-total {
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .notes, .terms {
+      margin-bottom: 30px;
+    }
+    .notes h3, .terms h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 16px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 5px;
+    }
+    .footer {
+      margin-top: 50px;
+      text-align: center;
+      font-size: 10px;
+      color: #777;
+      border-top: 1px solid #ddd;
+      padding-top: 20px;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+      text-transform: uppercase;
+    }
+    .status-draft {
+      background-color: #6c757d;
+    }
+    .status-sent {
+      background-color: #007bff;
+    }
+    .status-accepted {
+      background-color: #28a745;
+    }
+    .status-rejected {
+      background-color: #dc3545;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>報價單</h1>
+      <div class="company-info">
+        <p><strong><%= company.name %></strong></p>
+        <p><%= company.address %></p>
+        <p>電話：<%= company.phone %> | 電子郵件：<%= company.email %></p>
+        <p>網站：<%= company.website %></p>
+      </div>
+    </div>
+
+    <div class="quote-info">
+      <div class="quote-info-box">
+        <h3>客戶資訊</h3>
+        <p><strong><%= quote.customer.name %></strong></p>
+        <p>聯絡人：<%= quote.customer.contactPerson || '無' %></p>
+        <p>電話：<%= quote.customer.phone || '無' %></p>
+        <p>電子郵件：<%= quote.customer.email || '無' %></p>
+        <p>地址：<%= quote.customer.address || '無' %></p>
+      </div>
+      <div class="quote-info-box">
+        <h3>報價資訊</h3>
+        <p><strong>報價單號：</strong> <%= quote.quoteNumber %></p>
+        <p><strong>報價日期：</strong> <%= formatDate(quote.quoteDate) %></p>
+        <p><strong>有效期限：</strong> <%= formatDate(quote.validUntil) %></p>
+        <p><strong>狀態：</strong> 
+          <span class="status-badge status-<%= quote.status %>">
+            <%= getStatusText(quote.status) %>
+          </span>
+        </p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 5%">項次</th>
+          <th style="width: 40%">產品/服務</th>
+          <th style="width: 15%">單價</th>
+          <th style="width: 10%">數量</th>
+          <th style="width: 10%">單位</th>
+          <th style="width: 20%">小計</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (quote.items && quote.items.length > 0) { %>
+          <% quote.items.forEach((item, index) => { %>
+            <tr>
+              <td><%= index + 1 %></td>
+              <td><%= item.name %></td>
+              <td>$<%= item.price.toFixed(2) %></td>
+              <td><%= item.quantity %></td>
+              <td><%= item.unit || '個' %></td>
+              <td class="text-right">$<%= (item.price * item.quantity).toFixed(2) %></td>
+            </tr>
+          <% }); %>
+        <% } else { %>
+          <tr>
+            <td colspan="6" style="text-align: center;">無報價項目</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <table>
+        <tr>
+          <th>小計</th>
+          <td class="text-right">$<%= quote.subtotal.toFixed(2) %></td>
+        </tr>
+        <% if (quote.discountRate > 0) { %>
+          <tr>
+            <th>折扣 (<%= quote.discountRate %>%)</th>
+            <td class="text-right">-$<%= quote.discountAmount.toFixed(2) %></td>
+          </tr>
+        <% } %>
+        <% if (quote.taxRate > 0) { %>
+          <tr>
+            <th>稅額 (<%= quote.taxRate %>%)</th>
+            <td class="text-right">$<%= quote.taxAmount.toFixed(2) %></td>
+          </tr>
+        <% } %>
+        <tr class="grand-total">
+          <th>總計</th>
+          <td class="text-right">$<%= quote.total.toFixed(2) %></td>
+        </tr>
+      </table>
+    </div>
+
+    <% if (quote.notes) { %>
+      <div class="notes">
+        <h3>備註</h3>
+        <p><%= quote.notes %></p>
+      </div>
+    <% } %>
+
+    <div class="terms">
+      <h3>條款與條件</h3>
+      <p><%= quote.terms || '無特殊條款' %></p>
+    </div>
+
+    <div class="footer">
+      <p>此報價單由 <%= company.name %> 系統自動生成於 <%= formatDateTime(new Date()) %></p>
+      <p>如有任何疑問，請聯絡我們：<%= company.email %> | <%= company.phone %></p>
+    </div>
+  </div>
+
+  <script>
+    function getStatusText(status) {
+      switch(status) {
+        case 'draft': return '草稿';
+        case 'sent': return '已發送';
+        case 'accepted': return '已接受';
+        case 'rejected': return '已拒絕';
+        default: return '未知';
+      }
+    }
+    
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-TW');
+    }
+    
+    function formatDateTime(date) {
+      return date.toLocaleDateString('zh-TW') + ' ' + date.toLocaleTimeString('zh-TW');
+    }
+  </script>
+</body>
+</html> 

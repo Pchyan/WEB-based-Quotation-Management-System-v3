@@ -1,0 +1,119 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">批量匯入客戶</h3>
+      <div>
+        <a href="/customers" class="btn btn-outline-secondary">
+          <i class="fas fa-arrow-left"></i> 返回客戶列表
+        </a>
+      </div>
+    </div>
+    <div class="card-body">
+      <% if (locals.error) { %>
+        <div class="alert alert-danger">
+          <%= error %>
+        </div>
+      <% } %>
+      <% if (locals.success) { %>
+        <div class="alert alert-success">
+          <%= success %>
+        </div>
+      <% } %>
+      
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title">匯入說明</h5>
+              <hr>
+              <p>請依照以下格式準備 CSV 或 Excel 檔案：</p>
+              <ul>
+                <li><strong>必填欄位</strong>：客戶名稱(name)</li>
+                <li><strong>選填欄位</strong>：聯絡人(contactPerson)、電子郵件(email)、電話(phone)、地址(address)、統一編號(taxId)、備註(notes)</li>
+              </ul>
+              <p>支援的欄位名稱格式：</p>
+              <ul>
+                <li>英文欄位：name, contactPerson, email, phone, address, taxId, notes</li>
+                <li>首字母大寫：Name, ContactPerson, Email, Phone, Address, TaxId, Notes</li>
+                <li>中文欄位：客戶名稱, 聯絡人, 電子郵件, 電話, 地址, 統一編號, 備註</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title">範例檔案</h5>
+              <hr>
+              <p>您可以下載以下範例檔案作為參考：</p>
+              <ul>
+                <li>
+                  <a href="/templates/customer_import_template.csv" download>
+                    <i class="fas fa-file-csv"></i> CSV 範例檔案
+                  </a>
+                </li>
+                <li>
+                  <a href="/templates/customer_import_template.xlsx" download>
+                    <i class="fas fa-file-excel"></i> Excel 範例檔案
+                  </a>
+                </li>
+              </ul>
+              <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> 匯入的客戶資料將與您的帳號關聯。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <form action="/customers/import" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="file" class="form-label">選擇檔案</label>
+          <input type="file" class="form-control" id="file" name="file" accept=".csv, .xls, .xlsx" required>
+          <div class="form-text">請選擇 CSV 或 Excel 檔案 (.csv, .xls, .xlsx)</div>
+        </div>
+        
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-upload"></i> 上傳並匯入
+          </button>
+        </div>
+      </form>
+      
+      <% if (locals.results && locals.results.failedItems && locals.results.failedItems.length > 0) { %>
+        <div class="mt-4">
+          <h5>匯入失敗項目 (<%= locals.results.failedItems.length %>)</h5>
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>客戶名稱</th>
+                  <th>聯絡人</th>
+                  <th>電子郵件</th>
+                  <th>電話</th>
+                  <th>失敗原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% locals.results.failedItems.forEach(item => { %>
+                  <tr>
+                    <td><%= item.data.name || '(空)' %></td>
+                    <td><%= item.data.contactPerson || '(空)' %></td>
+                    <td><%= item.data.email || '(空)' %></td>
+                    <td><%= item.data.phone || '(空)' %></td>
+                    <td><%= item.reason %></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/footer') %> 

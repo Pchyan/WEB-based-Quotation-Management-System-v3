@@ -1,0 +1,287 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>客戶報表</h1>
+    <div>
+      <a href="/reports/sales" class="btn btn-outline-primary me-2">
+        <i class="bi bi-graph-up"></i> 銷售報表
+      </a>
+      <a href="/reports/products" class="btn btn-outline-primary me-2">
+        <i class="bi bi-box"></i> 產品報表
+      </a>
+      <a href="/reports/conversion" class="btn btn-outline-primary me-2">
+        <i class="bi bi-arrow-left-right"></i> 轉換率報表
+      </a>
+      <a href="/" class="btn btn-outline-secondary">
+        <i class="bi bi-house"></i> 返回首頁
+      </a>
+    </div>
+  </div>
+  
+  <!-- 篩選條件 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="card-title mb-0">篩選條件</h5>
+    </div>
+    <div class="card-body">
+      <form method="GET" class="row g-3">
+        <div class="col-md-4">
+          <label for="startDate" class="form-label">起始日期</label>
+          <input type="date" class="form-control" id="startDate" name="startDate" value="<%= startDate %>">
+        </div>
+        <div class="col-md-4">
+          <label for="endDate" class="form-label">結束日期</label>
+          <input type="date" class="form-control" id="endDate" name="endDate" value="<%= endDate %>">
+        </div>
+        <div class="col-md-4">
+          <label for="sort" class="form-label">排序方式</label>
+          <select class="form-select" id="sort" name="sort">
+            <option value="amount" <%= sort === 'amount' ? 'selected' : '' %>>依總金額</option>
+            <option value="quotes" <%= sort === 'quotes' ? 'selected' : '' %>>依報價數量</option>
+            <option value="acceptance" <%= sort === 'acceptance' ? 'selected' : '' %>>依接受率</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-filter"></i> 套用篩選
+          </button>
+          <a href="/reports/customers" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-counterclockwise"></i> 重設
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 客戶數據表格 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">客戶業績分析</h5>
+      <div>
+        <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
+          <i class="bi bi-printer"></i> 列印報表
+        </button>
+        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+          <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>客戶名稱</th>
+              <th>聯絡人</th>
+              <th>聯絡資訊</th>
+              <th>報價數量</th>
+              <th>已接受</th>
+              <th>接受率</th>
+              <th>總金額</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (locals.customerStats && customerStats.length > 0) { %>
+              <% customerStats.forEach(customer => { %>
+                <tr>
+                  <td><a href="/customers/<%= customer.id %>"><%= customer.name %></a></td>
+                  <td><%= customer.contactPerson || '—' %></td>
+                  <td>
+                    <% if (customer.email) { %>
+                      <div><i class="bi bi-envelope-fill me-1"></i> <%= customer.email %></div>
+                    <% } %>
+                    <% if (customer.phone) { %>
+                      <div><i class="bi bi-telephone-fill me-1"></i> <%= customer.phone %></div>
+                    <% } %>
+                  </td>
+                  <td><%= customer.totalQuotes %></td>
+                  <td><%= customer.acceptedQuotes %></td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                        <div class="progress-bar" role="progressbar" style="width: <%= customer.acceptanceRate %>%" aria-valuenow="<%= customer.acceptanceRate %>" aria-valuemin="0" aria-valuemax="100"></div>
+                      </div>
+                      <span><%= customer.acceptanceRate %>%</span>
+                    </div>
+                  </td>
+                  <td>$<%= customer.totalAmount.toFixed(2) %></td>
+                  <td>
+                    <div class="btn-group">
+                      <a href="/customers/<%= customer.id %>" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                      <a href="/quotes/create?customerId=<%= customer.id %>" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="8" class="text-center py-4">
+                  <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i> 沒有符合條件的客戶數據
+                  </div>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 圖表統計 -->
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">客戶銷售金額排行</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="customerAmountChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">客戶接受率分析</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="customerAcceptanceChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 客戶數據
+    const customerData = [
+      <% if (locals.customerStats && customerStats.length > 0) { %>
+        <% customerStats.slice(0, 10).forEach(customer => { %>
+          {
+            name: "<%= customer.name %>",
+            totalAmount: <%= customer.totalAmount %>,
+            totalQuotes: <%= customer.totalQuotes %>,
+            acceptedQuotes: <%= customer.acceptedQuotes %>,
+            acceptanceRate: <%= customer.acceptanceRate %>
+          },
+        <% }); %>
+      <% } %>
+    ];
+    
+    if (customerData.length > 0) {
+      // 生成隨機顏色
+      function generateColors(count) {
+        const colors = [];
+        for (let i = 0; i < count; i++) {
+          const hue = (i * 30) % 360;
+          colors.push(`hsla(${hue}, 70%, 60%, 0.8)`);
+        }
+        return colors;
+      }
+      
+      // 客戶銷售金額圖表
+      const amountCtx = document.getElementById('customerAmountChart').getContext('2d');
+      const amountLabels = customerData.map(customer => customer.name);
+      const amountData = customerData.map(customer => customer.totalAmount);
+      const amountColors = generateColors(customerData.length);
+      
+      new Chart(amountCtx, {
+        type: 'bar',
+        data: {
+          labels: amountLabels,
+          datasets: [{
+            label: '總銷售金額',
+            data: amountData,
+            backgroundColor: amountColors,
+            borderColor: amountColors.map(color => color.replace('0.8', '1')),
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '$' + value;
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // 客戶接受率圖表
+      const acceptanceCtx = document.getElementById('customerAcceptanceChart').getContext('2d');
+      const acceptanceLabels = customerData.map(customer => customer.name);
+      const acceptanceData = customerData.map(customer => [customer.acceptedQuotes, customer.totalQuotes - customer.acceptedQuotes]);
+      
+      new Chart(acceptanceCtx, {
+        type: 'pie',
+        data: {
+          labels: ['已接受', '未接受/拒絕'],
+          datasets: [{
+            data: [
+              customerData.reduce((sum, customer) => sum + customer.acceptedQuotes, 0),
+              customerData.reduce((sum, customer) => sum + (customer.totalQuotes - customer.acceptedQuotes), 0)
+            ],
+            backgroundColor: [
+              'rgba(75, 192, 192, 0.8)',
+              'rgba(255, 99, 132, 0.8)'
+            ],
+            borderColor: [
+              'rgba(75, 192, 192, 1)',
+              'rgba(255, 99, 132, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((value / total) * 100);
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  });
+  
+  // 列印報表
+  function printReport() {
+    window.print();
+  }
+  
+  // 匯出 Excel（實際應用中應連接到後端 API）
+  function exportToExcel() {
+    alert('此功能需要後端支援，將產生 Excel 檔案下載');
+  }
+</script>
+
+<%- include('../../partials/footer') %> 

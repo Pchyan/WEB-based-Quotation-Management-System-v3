@@ -1,0 +1,254 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><%= customer.name %></h1>
+    <div>
+      <a href="/customers/edit/<%= customer.id %>" class="btn btn-primary">
+        <i class="bi bi-pencil"></i> 編輯客戶
+      </a>
+      <button type="button" class="btn btn-outline-danger ms-2" 
+              data-id="<%= customer.id %>" 
+              data-name="<%= customer.name %>"
+              data-bs-toggle="modal" 
+              data-bs-target="#deleteModal">
+        <i class="bi bi-trash"></i> 刪除客戶
+      </button>
+    </div>
+  </div>
+  
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">客戶資料</h5>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">聯絡人</div>
+            <div class="col-md-9"><%= customer.contactPerson || '—' %></div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">電子郵件</div>
+            <div class="col-md-9">
+              <% if (customer.email) { %>
+                <a href="mailto:<%= customer.email %>"><%= customer.email %></a>
+              <% } else { %>
+                —
+              <% } %>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">電話</div>
+            <div class="col-md-9">
+              <% if (customer.phone) { %>
+                <a href="tel:<%= customer.phone %>"><%= customer.phone %></a>
+              <% } else { %>
+                —
+              <% } %>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">地址</div>
+            <div class="col-md-9"><%= customer.address || '—' %></div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">備註</div>
+            <div class="col-md-9"><%= customer.notes || '—' %></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">報價單紀錄</h5>
+          <a href="/quotes/create?customerId=<%= customer.id %>" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus"></i> 新增報價單
+          </a>
+        </div>
+        <div class="card-body p-0">
+          <% if (quotes && quotes.length > 0) { %>
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>報價單編號</th>
+                    <th>報價日期</th>
+                    <th>有效期限</th>
+                    <th>總金額</th>
+                    <th>狀態</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% quotes.forEach(quote => { %>
+                    <tr>
+                      <td><a href="/quotes/<%= quote.id %>">#<%= quote.id %></a></td>
+                      <td><%= new Date(quote.quoteDate).toLocaleDateString() %></td>
+                      <td><%= new Date(quote.validUntil).toLocaleDateString() %></td>
+                      <td><%= quote.total.toFixed(2) %></td>
+                      <td>
+                        <span class="badge status-<%= quote.status %>">
+                          <% if (quote.status === 'draft') { %>草稿
+                          <% } else if (quote.status === 'sent') { %>已發送
+                          <% } else if (quote.status === 'accepted') { %>已接受
+                          <% } else if (quote.status === 'rejected') { %>已拒絕
+                          <% } else if (quote.status === 'expired') { %>已過期
+                          <% } %>
+                        </span>
+                      </td>
+                      <td>
+                        <div class="btn-group">
+                          <a href="/quotes/<%= quote.id %>" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                          </a>
+                          <% if (quote.status === 'draft') { %>
+                            <a href="/quotes/edit/<%= quote.id %>" class="btn btn-sm btn-outline-primary">
+                              <i class="bi bi-pencil"></i>
+                            </a>
+                          <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } else { %>
+            <div class="alert alert-info m-3">
+              <i class="bi bi-info-circle"></i> 此客戶尚未有任何報價單
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">客戶統計資訊</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <div class="text-muted">總報價單數</div>
+            <div class="fw-bold"><%= quotes ? quotes.length : 0 %></div>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <div class="text-muted">已接受報價單</div>
+            <div class="fw-bold">
+              <%= quotes ? quotes.filter(q => q.status === 'accepted').length : 0 %>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <div class="text-muted">接受率</div>
+            <div class="fw-bold">
+              <% 
+                if (quotes && quotes.length > 0) {
+                  const acceptedQuotes = quotes.filter(q => q.status === 'accepted').length;
+                  const acceptanceRate = (acceptedQuotes / quotes.length * 100).toFixed(1);
+                  %><%= acceptanceRate %>%<%
+                } else {
+                  %>0%<%
+                }
+              %>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <div class="text-muted">最近報價</div>
+            <div class="fw-bold">
+              <% 
+                if (quotes && quotes.length > 0) {
+                  const sortedQuotes = [...quotes].sort((a, b) => new Date(b.quoteDate) - new Date(a.quoteDate));
+                  const latestQuote = sortedQuotes[0];
+                  const latestDate = new Date(latestQuote.quoteDate);
+                  %><%= latestDate.toLocaleDateString() %><%
+                } else {
+                  %>—<%
+                }
+              %>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">快速操作</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="/quotes/create?customerId=<%= customer.id %>" class="btn btn-primary">
+              <i class="bi bi-file-earmark-plus"></i> 建立新報價單
+            </a>
+            <a href="/customers" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> 返回客戶列表
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除確認模態框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除客戶「<span id="customerName"></span>」嗎？此操作無法撤銷。
+        <div class="alert alert-warning mt-3">
+          <i class="bi bi-exclamation-triangle"></i> 警告：刪除客戶將會同時刪除與該客戶相關的所有報價單。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      document.getElementById('customerName').textContent = name;
+      document.getElementById('deleteForm').action = `/customers/delete/${id}`;
+    });
+  });
+  
+  // 處理刪除表單提交
+  document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/customers';
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

@@ -1,0 +1,226 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><%= product.name %></h1>
+    <div>
+      <a href="/products/edit/<%= product.id %>" class="btn btn-primary">
+        <i class="bi bi-pencil"></i> 編輯產品
+      </a>
+      <button type="button" class="btn btn-outline-danger ms-2" 
+              data-id="<%= product.id %>" 
+              data-name="<%= product.name %>"
+              data-bs-toggle="modal" 
+              data-bs-target="#deleteModal">
+        <i class="bi bi-trash"></i> 刪除產品
+      </button>
+    </div>
+  </div>
+  
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">產品資料</h5>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">產品編號</div>
+            <div class="col-md-9"><%= product.sku || '—' %></div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">價格</div>
+            <div class="col-md-9">$<%= product.price.toFixed(2) %><%= product.unit ? ` / ${product.unit}` : '' %></div>
+          </div>
+          <% if (product.categoryId) { %>
+            <div class="row mb-3">
+              <div class="col-md-3 text-muted">分類</div>
+              <div class="col-md-9">
+                <% const category = categories ? categories.find(c => c.id === product.categoryId) : null; %>
+                <%= category ? category.name : '—' %>
+              </div>
+            </div>
+          <% } %>
+          <div class="row mb-3">
+            <div class="col-md-3 text-muted">描述</div>
+            <div class="col-md-9"><%= product.description || '—' %></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">最近使用此產品的報價單</h5>
+        </div>
+        <div class="card-body p-0">
+          <% if (locals.quotes && quotes.length > 0) { %>
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>報價單編號</th>
+                    <th>客戶</th>
+                    <th>報價日期</th>
+                    <th>狀態</th>
+                    <th>數量</th>
+                    <th>小計</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% quotes.forEach(quote => { %>
+                    <tr>
+                      <td><a href="/quotes/<%= quote.id %>">#<%= quote.id %></a></td>
+                      <td><%= quote.customerName %></td>
+                      <td><%= new Date(quote.quoteDate).toLocaleDateString() %></td>
+                      <td>
+                        <span class="badge status-<%= quote.status %>">
+                          <% if (quote.status === 'draft') { %>草稿
+                          <% } else if (quote.status === 'sent') { %>已發送
+                          <% } else if (quote.status === 'accepted') { %>已接受
+                          <% } else if (quote.status === 'rejected') { %>已拒絕
+                          <% } else if (quote.status === 'expired') { %>已過期
+                          <% } %>
+                        </span>
+                      </td>
+                      <td><%= quote.quantity %><%= product.unit ? ` ${product.unit}` : '' %></td>
+                      <td>$<%= quote.subtotal.toFixed(2) %></td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } else { %>
+            <div class="alert alert-info m-3">
+              <i class="bi bi-info-circle"></i> 此產品尚未被用於任何報價單
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">產品統計資訊</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <div class="text-muted">使用次數</div>
+            <div class="fw-bold"><%= locals.quotes ? quotes.length : 0 %></div>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <div class="text-muted">被接受次數</div>
+            <div class="fw-bold">
+              <%= locals.quotes ? quotes.filter(q => q.status === 'accepted').length : 0 %>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <div class="text-muted">總銷售數量</div>
+            <div class="fw-bold">
+              <% 
+                if (locals.quotes && quotes.length > 0) {
+                  const totalQuantity = quotes.reduce((sum, quote) => sum + quote.quantity, 0);
+                  %><%= totalQuantity %><%= product.unit ? ` ${product.unit}` : '' %><%
+                } else {
+                  %>0<%
+                }
+              %>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <div class="text-muted">總銷售額</div>
+            <div class="fw-bold">
+              <% 
+                if (locals.quotes && quotes.length > 0) {
+                  const totalSales = quotes.reduce((sum, quote) => sum + quote.subtotal, 0);
+                  %>$<%= totalSales.toFixed(2) %><%
+                } else {
+                  %>$0.00<%
+                }
+              %>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">快速操作</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <a href="/quotes/create" class="btn btn-primary">
+              <i class="bi bi-file-earmark-plus"></i> 使用此產品建立報價單
+            </a>
+            <a href="/products" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> 返回產品列表
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除確認模態框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除產品「<span id="productName"></span>」嗎？此操作無法撤銷。
+        <div class="alert alert-warning mt-3">
+          <i class="bi bi-exclamation-triangle"></i> 警告：若此產品已用於報價單中，可能會影響現有報價單的計算。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      document.getElementById('productName').textContent = name;
+      document.getElementById('deleteForm').action = `/products/delete/${id}`;
+    });
+  });
+  
+  // 處理刪除表單提交
+  document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/products';
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

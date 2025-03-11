@@ -1,0 +1,218 @@
+<%- include('../../../partials/header') %>
+<%- include('../../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>產品分類管理</h1>
+    <a href="/products" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> 返回產品列表
+    </a>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">分類列表</h5>
+        </div>
+        <div class="card-body p-0">
+          <% if (categories && categories.length > 0) { %>
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>分類名稱</th>
+                    <th>產品數量</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% categories.forEach(category => { %>
+                    <tr>
+                      <td>
+                        <a href="/products/category/<%= category.id %>"><%= category.name %></a>
+                      </td>
+                      <td><%= category.productCount || 0 %></td>
+                      <td>
+                        <div class="btn-group">
+                          <button type="button" class="btn btn-sm btn-outline-primary edit-category-btn" 
+                                  data-id="<%= category.id %>" 
+                                  data-name="<%= category.name %>">
+                            <i class="bi bi-pencil"></i>
+                          </button>
+                          <button type="button" class="btn btn-sm btn-outline-danger delete-category-btn" 
+                                  data-id="<%= category.id %>" 
+                                  data-name="<%= category.name %>"
+                                  data-count="<%= category.productCount || 0 %>"
+                                  data-bs-toggle="modal" 
+                                  data-bs-target="#deleteCategoryModal">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          <% } else { %>
+            <div class="alert alert-info m-3">
+              <i class="bi bi-info-circle"></i> 尚未創建任何產品分類
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-4">
+      <div class="card shadow-sm" id="create-category-card">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">新增分類</h5>
+        </div>
+        <div class="card-body">
+          <% if (locals.error) { %>
+            <div class="alert alert-danger">
+              <%= error %>
+            </div>
+          <% } %>
+          <% if (locals.success) { %>
+            <div class="alert alert-success">
+              <%= success %>
+            </div>
+          <% } %>
+          
+          <form action="/products/categories/create" method="POST">
+            <div class="mb-3">
+              <label for="categoryName" class="form-label">分類名稱</label>
+              <input type="text" class="form-control" id="categoryName" name="name" required>
+            </div>
+            
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-plus"></i> 新增分類
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <div class="card shadow-sm mt-4 d-none" id="edit-category-card">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">編輯分類</h5>
+        </div>
+        <div class="card-body">
+          <form id="edit-category-form" method="POST">
+            <div class="mb-3">
+              <label for="editCategoryName" class="form-label">分類名稱</label>
+              <input type="text" class="form-control" id="editCategoryName" name="name" required>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+              <button type="button" id="cancel-edit-btn" class="btn btn-outline-secondary">
+                <i class="bi bi-x"></i> 取消
+              </button>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg"></i> 儲存變更
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除分類確認模態框 -->
+<div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-labelledby="deleteCategoryModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteCategoryModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除分類「<span id="categoryName"></span>」嗎？此操作無法撤銷。
+        <div id="categoryWarning" class="alert alert-warning mt-3 d-none">
+          <i class="bi bi-exclamation-triangle"></i> 警告：此分類目前包含 <span id="categoryCount"></span> 個產品。刪除分類後，這些產品將會設為無分類狀態。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteCategoryForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 處理編輯分類按鈕
+  document.querySelectorAll('.edit-category-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      
+      // 填充表單
+      document.getElementById('editCategoryName').value = name;
+      document.getElementById('edit-category-form').action = `/products/categories/edit/${id}`;
+      
+      // 顯示編輯卡片，隱藏新增卡片
+      document.getElementById('create-category-card').classList.add('d-none');
+      document.getElementById('edit-category-card').classList.remove('d-none');
+    });
+  });
+  
+  // 處理取消編輯按鈕
+  document.getElementById('cancel-edit-btn').addEventListener('click', function() {
+    document.getElementById('create-category-card').classList.remove('d-none');
+    document.getElementById('edit-category-card').classList.add('d-none');
+  });
+  
+  // 處理刪除分類按鈕
+  document.querySelectorAll('.delete-category-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      const count = parseInt(this.getAttribute('data-count') || '0');
+      
+      document.getElementById('categoryName').textContent = name;
+      document.getElementById('deleteCategoryForm').action = `/products/categories/delete/${id}`;
+      
+      // 如果分類包含產品，顯示警告
+      if (count > 0) {
+        document.getElementById('categoryCount').textContent = count;
+        document.getElementById('categoryWarning').classList.remove('d-none');
+      } else {
+        document.getElementById('categoryWarning').classList.add('d-none');
+      }
+    });
+  });
+  
+  // 處理刪除分類表單提交
+  document.getElementById('deleteCategoryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.reload();
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteCategoryModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
+
+<%- include('../../../partials/footer') %> 

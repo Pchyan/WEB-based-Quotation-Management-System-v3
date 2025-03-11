@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="<%= locals.user && locals.user.preferences && locals.user.preferences.language ? locals.user.preferences.language : 'zh-TW' %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title + ' - ' + locals.appName : locals.appName %></title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Preferences CSS -->
+  <link rel="stylesheet" href="/css/preferences.css">
+  
+  <!-- 使用者偏好設定 -->
+  <% if (locals.user && locals.user.preferences) { %>
+  <script>
+    window.userPreferences = JSON.parse('<%= JSON.stringify(locals.user.preferences) %>');
+  </script>
+  <% } %>
+  
+  <!-- Preferences JS -->
+  <script src="/js/preferences.js"></script>
+</head>
+<body>
+  <div class="wrapper"> 

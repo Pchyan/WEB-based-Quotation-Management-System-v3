@@ -1,0 +1,156 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <h3 class="card-title mb-0">個人資料</h3>
+        </div>
+        <div class="card-body">
+          <% if (locals.error) { %>
+            <div class="alert alert-danger">
+              <%= error %>
+            </div>
+          <% } %>
+          <% if (locals.success) { %>
+            <div class="alert alert-success">
+              <%= success %>
+            </div>
+          <% } %>
+
+          <form action="/users/profile" method="POST">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="username" class="form-label">使用者名稱</label>
+                <input type="text" class="form-control" id="username" value="<%= user.username %>" readonly disabled>
+                <div class="form-text">使用者名稱無法變更</div>
+              </div>
+              <div class="col-md-6">
+                <label for="email" class="form-label">電子郵件</label>
+                <input type="email" class="form-control" id="email" name="email" value="<%= user.email %>" required>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="name" class="form-label">姓名</label>
+              <input type="text" class="form-control" id="name" name="name" value="<%= user.name %>" required>
+            </div>
+            
+            <hr class="my-4">
+            <h5>變更密碼</h5>
+            <p class="text-muted mb-3">如果不想變更密碼，請留空</p>
+            
+            <div class="mb-3">
+              <label for="currentPassword" class="form-label">目前密碼</label>
+              <input type="password" class="form-control" id="currentPassword" name="currentPassword">
+            </div>
+            
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="newPassword" class="form-label">新密碼</label>
+                <input type="password" class="form-control" id="newPassword" name="newPassword">
+                <div class="form-text">密碼至少需要 6 個字元</div>
+              </div>
+              <div class="col-md-6">
+                <label for="confirmPassword" class="form-label">確認新密碼</label>
+                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword">
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> 儲存變更
+              </button>
+              <a href="/dashboard" class="btn btn-outline-secondary">
+                <i class="bi bi-x"></i> 取消
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <div class="card mt-4 shadow-sm">
+        <div class="card-header bg-white">
+          <h3 class="card-title mb-0">帳號設定</h3>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h5>角色</h5>
+              <p><span class="badge bg-primary"><%= user.role === 'admin' ? '管理員' : '一般使用者' %></span></p>
+            </div>
+            <div class="col-md-6">
+              <h5>上次登入</h5>
+              <p><%= user.lastLogin ? new Date(user.lastLogin).toLocaleString() : '無登入記錄' %></p>
+            </div>
+          </div>
+          
+          <hr class="my-4">
+          <h5>系統偏好設定</h5>
+          
+          <form action="/users/preferences" method="POST" class="mt-3" id="preferencesForm">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="theme" class="form-label">主題模式</label>
+                <select class="form-select" id="theme" name="theme">
+                  <option value="light" <%= !user.preferences || user.preferences.theme === 'light' ? 'selected' : '' %>>淺色模式</option>
+                  <option value="dark" <%= user.preferences && user.preferences.theme === 'dark' ? 'selected' : '' %>>深色模式</option>
+                  <option value="auto" <%= user.preferences && user.preferences.theme === 'auto' ? 'selected' : '' %>>自動（跟隨系統）</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="colorScheme" class="form-label">顏色方案</label>
+                <select class="form-select" id="colorScheme" name="colorScheme">
+                  <option value="blue" <%= !user.preferences || user.preferences.colorScheme === 'blue' ? 'selected' : '' %>>藍色（預設）</option>
+                  <option value="green" <%= user.preferences && user.preferences.colorScheme === 'green' ? 'selected' : '' %>>綠色</option>
+                  <option value="purple" <%= user.preferences && user.preferences.colorScheme === 'purple' ? 'selected' : '' %>>紫色</option>
+                  <option value="orange" <%= user.preferences && user.preferences.colorScheme === 'orange' ? 'selected' : '' %>>橙色</option>
+                  <option value="teal" <%= user.preferences && user.preferences.colorScheme === 'teal' ? 'selected' : '' %>>藍綠色</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="fontSize" class="form-label">字體大小</label>
+                <select class="form-select" id="fontSize" name="fontSize">
+                  <option value="small" <%= user.preferences && user.preferences.fontSize === 'small' ? 'selected' : '' %>>小</option>
+                  <option value="medium" <%= !user.preferences || user.preferences.fontSize === 'medium' ? 'selected' : '' %>>中（預設）</option>
+                  <option value="large" <%= user.preferences && user.preferences.fontSize === 'large' ? 'selected' : '' %>>大</option>
+                  <option value="x-large" <%= user.preferences && user.preferences.fontSize === 'x-large' ? 'selected' : '' %>>特大</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="fontFamily" class="form-label">字體</label>
+                <select class="form-select" id="fontFamily" name="fontFamily">
+                  <option value="system" <%= !user.preferences || user.preferences.fontFamily === 'system' ? 'selected' : '' %>>系統預設</option>
+                  <option value="serif" <%= user.preferences && user.preferences.fontFamily === 'serif' ? 'selected' : '' %>>襯線字體</option>
+                  <option value="sans-serif" <%= user.preferences && user.preferences.fontFamily === 'sans-serif' ? 'selected' : '' %>>無襯線字體</option>
+                  <option value="monospace" <%= user.preferences && user.preferences.fontFamily === 'monospace' ? 'selected' : '' %>>等寬字體</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="language" class="form-label">顯示語言</label>
+              <select class="form-select" id="language" name="language">
+                <option value="zh-TW" <%= !user.preferences || user.preferences.language === 'zh-TW' ? 'selected' : '' %>>繁體中文</option>
+                <option value="en" <%= user.preferences && user.preferences.language === 'en' ? 'selected' : '' %>>English</option>
+              </select>
+            </div>
+            
+            <div class="d-grid">
+              <button type="submit" class="btn btn-outline-primary">
+                <i class="bi bi-sliders"></i> 更新偏好設定
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/footer') %> 

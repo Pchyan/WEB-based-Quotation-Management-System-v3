@@ -1,0 +1,166 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>產品管理</h1>
+    <div>
+      <a href="/products/categories/manage" class="btn btn-outline-secondary me-2">
+        <i class="bi bi-tags"></i> 管理分類
+      </a>
+      <a href="/products/create" class="btn btn-primary">
+        <i class="bi bi-plus"></i> 新增產品
+      </a>
+      <a href="/products/import" class="btn btn-success">
+        <i class="fas fa-file-import"></i> 批量匯入
+      </a>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <form action="/products/search" method="GET">
+        <div class="input-group">
+          <input type="text" name="q" class="form-control" placeholder="搜尋產品...">
+          <button class="btn btn-outline-secondary" type="submit">
+            <i class="bi bi-search"></i> 搜尋
+          </button>
+        </div>
+      </form>
+    </div>
+    <div class="col-md-6">
+      <div class="d-flex justify-content-md-end mt-3 mt-md-0">
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="categoryFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-filter"></i> 按分類篩選
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="categoryFilterDropdown">
+            <li><a class="dropdown-item" href="/products">全部產品</a></li>
+            <% if (categories && categories.length > 0) { %>
+              <% categories.forEach(category => { %>
+                <li><a class="dropdown-item" href="/products/category/<%= category.id %>"><%= category.name %></a></li>
+              <% }); %>
+            <% } %>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <% if (products && products.length > 0) { %>
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>產品名稱</th>
+              <th>編號</th>
+              <th>價格</th>
+              <th>單位</th>
+              <th>分類</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% products.forEach(product => { %>
+              <tr>
+                <td><a href="/products/<%= product.id %>"><%= product.name %></a></td>
+                <td><%= product.sku || '—' %></td>
+                <td><%= product.price.toFixed(2) %></td>
+                <td><%= product.unit || '—' %></td>
+                <td>
+                  <% if (product.categoryId && categories) { %>
+                    <% const category = categories.find(c => c.id === product.categoryId); %>
+                    <%= category ? category.name : '—' %>
+                  <% } else { %>
+                    —
+                  <% } %>
+                </td>
+                <td>
+                  <div class="btn-group">
+                    <a href="/products/<%= product.id %>" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="/products/edit/<%= product.id %>" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-btn" 
+                            data-id="<%= product.id %>" 
+                            data-name="<%= product.name %>"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#deleteModal">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="alert alert-info">
+      <i class="bi bi-info-circle"></i> 尚未創建任何產品
+    </div>
+  <% } %>
+</div>
+
+<!-- 刪除確認模態框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除產品「<span id="productName"></span>」嗎？此操作無法撤銷。
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.delete-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      document.getElementById('productName').textContent = name;
+      document.getElementById('deleteForm').action = `/products/delete/${id}`;
+    });
+  });
+  
+  // 處理刪除表單提交
+  document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/products';
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

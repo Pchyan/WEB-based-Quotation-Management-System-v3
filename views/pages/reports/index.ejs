@@ -1,0 +1,169 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>報表中心</h1>
+  </div>
+  
+  <div class="row row-cols-1 row-cols-md-2 g-4">
+    <!-- 銷售報表卡片 -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-graph-up"></i> 銷售報表
+          </h5>
+          <p class="card-text">查看指定時間範圍內的銷售趨勢、總收入和平均訂單價值。</p>
+          <form action="/reports/sales" method="GET">
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label for="salesFromDate" class="form-label">開始日期</label>
+                <input type="date" class="form-control" id="salesFromDate" name="fromDate">
+              </div>
+              <div class="col-md-6">
+                <label for="salesToDate" class="form-label">結束日期</label>
+                <input type="date" class="form-control" id="salesToDate" name="toDate">
+              </div>
+              <div class="col-md-12">
+                <label for="groupBy" class="form-label">分組方式</label>
+                <select class="form-select" id="groupBy" name="groupBy">
+                  <option value="day">按日</option>
+                  <option value="week">按週</option>
+                  <option value="month" selected>按月</option>
+                  <option value="quarter">按季</option>
+                  <option value="year">按年</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-bar-chart"></i> 生成報表
+            </button>
+          </form>
+        </div>
+        <div class="card-footer">
+          <a href="/reports/sales" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-arrow-right"></i> 查看預設報表
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 客戶報表卡片 -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-people"></i> 客戶報表
+          </h5>
+          <p class="card-text">分析客戶購買行為，找出最有價值的客戶和最活躍的客戶。</p>
+          <form action="/reports/customers" method="GET">
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label for="customersFromDate" class="form-label">開始日期</label>
+                <input type="date" class="form-control" id="customersFromDate" name="fromDate">
+              </div>
+              <div class="col-md-6">
+                <label for="customersToDate" class="form-label">結束日期</label>
+                <input type="date" class="form-control" id="customersToDate" name="toDate">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-bar-chart"></i> 生成報表
+            </button>
+          </form>
+        </div>
+        <div class="card-footer">
+          <a href="/reports/customers" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-arrow-right"></i> 查看預設報表
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 產品銷售報表卡片 -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-box"></i> 產品銷售報表
+          </h5>
+          <p class="card-text">查看最暢銷產品、產品銷售趨勢和產品分類績效。</p>
+          <form action="/reports/products" method="GET">
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label for="productsFromDate" class="form-label">開始日期</label>
+                <input type="date" class="form-control" id="productsFromDate" name="fromDate">
+              </div>
+              <div class="col-md-6">
+                <label for="productsToDate" class="form-label">結束日期</label>
+                <input type="date" class="form-control" id="productsToDate" name="toDate">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-bar-chart"></i> 生成報表
+            </button>
+          </form>
+        </div>
+        <div class="card-footer">
+          <a href="/reports/products" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-arrow-right"></i> 查看預設報表
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 轉換率報表卡片 -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">
+            <i class="bi bi-arrow-left-right"></i> 報價轉換率報表
+          </h5>
+          <p class="card-text">分析報價單轉換為接受的比率，了解報價策略的效果。</p>
+          <form action="/reports/conversion" method="GET">
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <label for="conversionFromDate" class="form-label">開始日期</label>
+                <input type="date" class="form-control" id="conversionFromDate" name="fromDate">
+              </div>
+              <div class="col-md-6">
+                <label for="conversionToDate" class="form-label">結束日期</label>
+                <input type="date" class="form-control" id="conversionToDate" name="toDate">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-bar-chart"></i> 生成報表
+            </button>
+          </form>
+        </div>
+        <div class="card-footer">
+          <a href="/reports/conversion" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-arrow-right"></i> 查看預設報表
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 設置所有日期選擇器的預設值
+  document.addEventListener('DOMContentLoaded', function() {
+    // 設置結束日期為今天
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelectorAll('input[name="toDate"]').forEach(input => {
+      input.value = today;
+    });
+    
+    // 設置開始日期為六個月前
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString().split('T')[0];
+    document.querySelectorAll('input[name="fromDate"]').forEach(input => {
+      input.value = sixMonthsAgoStr;
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

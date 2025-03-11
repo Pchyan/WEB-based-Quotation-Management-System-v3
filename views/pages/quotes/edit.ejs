@@ -1,0 +1,518 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container-fluid mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>編輯報價單 #<%= quote.quoteNumber %></h1>
+    <div>
+      <a href="/quotes/view/<%= quote.id %>" class="btn btn-outline-secondary me-2">
+        <i class="bi bi-x"></i> 取消
+      </a>
+      <a href="/quotes" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回報價列表
+      </a>
+    </div>
+  </div>
+
+  <% if (locals.error) { %>
+    <div class="alert alert-danger">
+      <%= error %>
+    </div>
+  <% } %>
+
+  <form id="quoteForm" action="/quotes/edit/<%= quote.id %>" method="POST">
+    <div class="row">
+      <!-- 左側：報價基本資訊 -->
+      <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">基本資訊</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="customer" class="form-label">客戶</label>
+              <select class="form-select" id="customer" name="customerId" required>
+                <option value="" disabled>選擇客戶</option>
+                <% if (customers && customers.length > 0) { %>
+                  <% customers.forEach(customer => { %>
+                    <option value="<%= customer.id %>" <%= quote.customerId === customer.id ? 'selected' : '' %>>
+                      <%= customer.name %>
+                    </option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label for="quoteNumber" class="form-label">報價單號</label>
+              <input type="text" class="form-control" id="quoteNumber" name="quoteNumber" value="<%= quote.quoteNumber %>" readonly>
+              <div class="form-text">系統自動生成</div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="quoteDate" class="form-label">報價日期</label>
+                <input type="date" class="form-control" id="quoteDate" name="quoteDate" value="<%= new Date(quote.quoteDate).toISOString().split('T')[0] %>" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="validUntil" class="form-label">有效期限</label>
+                <input type="date" class="form-control" id="validUntil" name="validUntil" value="<%= new Date(quote.validUntil).toISOString().split('T')[0] %>" required>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="status" class="form-label">狀態</label>
+              <select class="form-select" id="status" name="status" required>
+                <option value="draft" <%= quote.status === 'draft' ? 'selected' : '' %>>草稿</option>
+                <option value="sent" <%= quote.status === 'sent' ? 'selected' : '' %>>已發送</option>
+                <option value="accepted" <%= quote.status === 'accepted' ? 'selected' : '' %>>已接受</option>
+                <option value="rejected" <%= quote.status === 'rejected' ? 'selected' : '' %>>已拒絕</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">備註與條款</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="notes" class="form-label">備註</label>
+              <textarea class="form-control" id="notes" name="notes" rows="3"><%= quote.notes || '' %></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label for="terms" class="form-label">條款與條件</label>
+              <textarea class="form-control" id="terms" name="terms" rows="3"><%= quote.terms || '' %></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：報價項目 -->
+      <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">報價項目</h5>
+            <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">
+              <i class="bi bi-plus"></i> 新增項目
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover" id="itemsTable">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 40%">產品/服務</th>
+                    <th style="width: 15%">單價</th>
+                    <th style="width: 10%">數量</th>
+                    <th style="width: 10%">單位</th>
+                    <th style="width: 15%">小計</th>
+                    <th style="width: 10%">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- 項目將由JavaScript動態添加 -->
+                </tbody>
+              </table>
+            </div>
+            <div id="noItemsMessage" class="alert alert-info m-3">
+              <i class="bi bi-info-circle"></i> 尚未添加任何項目
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">總計</h5>
+          </div>
+          <div class="card-body">
+            <div class="row mb-3">
+              <div class="col-md-8 text-end">
+                <strong>小計：</strong>
+              </div>
+              <div class="col-md-4 text-end">
+                <span id="subtotal">$<%= quote.subtotal.toFixed(2) %></span>
+                <input type="hidden" name="subtotal" id="subtotalInput" value="<%= quote.subtotal %>">
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6 text-end">
+                <strong>折扣：</strong>
+              </div>
+              <div class="col-md-2">
+                <div class="input-group">
+                  <input type="number" class="form-control" id="discountRate" name="discountRate" min="0" max="100" value="<%= quote.discountRate || 0 %>">
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+              <div class="col-md-4 text-end">
+                <span id="discountAmount">$<%= quote.discountAmount.toFixed(2) %></span>
+                <input type="hidden" name="discountAmount" id="discountAmountInput" value="<%= quote.discountAmount %>">
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6 text-end">
+                <strong>稅率：</strong>
+              </div>
+              <div class="col-md-2">
+                <div class="input-group">
+                  <input type="number" class="form-control" id="taxRate" name="taxRate" min="0" max="100" value="<%= quote.taxRate || 0 %>">
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+              <div class="col-md-4 text-end">
+                <span id="taxAmount">$<%= quote.taxAmount.toFixed(2) %></span>
+                <input type="hidden" name="taxAmount" id="taxAmountInput" value="<%= quote.taxAmount %>">
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="row">
+              <div class="col-md-8 text-end">
+                <strong>總計：</strong>
+              </div>
+              <div class="col-md-4 text-end">
+                <h4 id="total">$<%= quote.total.toFixed(2) %></h4>
+                <input type="hidden" name="total" id="totalInput" value="<%= quote.total %>">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end mb-4">
+          <button type="button" class="btn btn-outline-secondary me-2" id="saveAsDraftBtn">
+            <i class="bi bi-save"></i> 儲存為草稿
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> 儲存變更
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- 產品選擇模態框 -->
+<div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="productModalLabel">選擇產品</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <input type="text" class="form-control" id="productSearch" placeholder="搜尋產品...">
+        </div>
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="table table-hover" id="productsTable">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th>名稱</th>
+                <th>SKU</th>
+                <th>單價</th>
+                <th>單位</th>
+                <th>分類</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (products && products.length > 0) { %>
+                <% products.forEach(product => { %>
+                  <tr>
+                    <td><%= product.name %></td>
+                    <td><%= product.sku || '-' %></td>
+                    <td>$<%= product.price.toFixed(2) %></td>
+                    <td><%= product.unit || '個' %></td>
+                    <td><%= product.category ? product.category.name : '無分類' %></td>
+                    <td>
+                      <button type="button" class="btn btn-sm btn-primary select-product-btn" 
+                              data-id="<%= product.id %>"
+                              data-name="<%= product.name %>"
+                              data-price="<%= product.price %>"
+                              data-unit="<%= product.unit || '個' %>">
+                        選擇
+                      </button>
+                    </td>
+                  </tr>
+                <% }); %>
+              <% } else { %>
+                <tr>
+                  <td colspan="6" class="text-center">無產品資料</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a href="/products/create" target="_blank" class="btn btn-outline-primary me-auto">
+          <i class="bi bi-plus"></i> 新增產品
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 初始化變數
+    let items = [];
+    let itemCounter = 0;
+    
+    // 載入現有項目
+    <% if (quote.items && quote.items.length > 0) { %>
+      <% quote.items.forEach(item => { %>
+        addItem({
+          id: '<%= item.productId %>',
+          name: '<%= item.name %>',
+          price: <%= item.price %>,
+          quantity: <%= item.quantity %>,
+          unit: '<%= item.unit %>',
+          existingId: '<%= item.id %>'
+        });
+      <% }); %>
+    <% } %>
+    
+    // 產品搜尋功能
+    document.getElementById('productSearch').addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase();
+      const rows = document.querySelectorAll('#productsTable tbody tr');
+      
+      rows.forEach(row => {
+        const name = row.cells[0].textContent.toLowerCase();
+        const sku = row.cells[1].textContent.toLowerCase();
+        const category = row.cells[4].textContent.toLowerCase();
+        
+        if (name.includes(searchTerm) || sku.includes(searchTerm) || category.includes(searchTerm)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+    
+    // 選擇產品按鈕
+    document.querySelectorAll('.select-product-btn').forEach(button => {
+      button.addEventListener('click', function() {
+        const productId = this.getAttribute('data-id');
+        const productName = this.getAttribute('data-name');
+        const productPrice = parseFloat(this.getAttribute('data-price'));
+        const productUnit = this.getAttribute('data-unit');
+        
+        addItem({
+          id: productId,
+          name: productName,
+          price: productPrice,
+          quantity: 1,
+          unit: productUnit
+        });
+        
+        // 關閉模態框
+        bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+      });
+    });
+    
+    // 新增項目按鈕
+    document.getElementById('addItemBtn').addEventListener('click', function() {
+      // 顯示產品選擇模態框
+      new bootstrap.Modal(document.getElementById('productModal')).show();
+    });
+    
+    // 儲存為草稿按鈕
+    document.getElementById('saveAsDraftBtn').addEventListener('click', function() {
+      document.getElementById('status').value = 'draft';
+      document.getElementById('quoteForm').submit();
+    });
+    
+    // 添加項目到表格
+    function addItem(item) {
+      itemCounter++;
+      const itemId = item.existingId || `new_item_${itemCounter}`;
+      
+      // 創建新項目
+      const newItem = {
+        id: itemId,
+        productId: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        unit: item.unit,
+        subtotal: item.price * item.quantity
+      };
+      
+      // 添加到項目數組
+      items.push(newItem);
+      
+      // 更新表格
+      updateItemsTable();
+      
+      // 更新總計
+      calculateTotals();
+    }
+    
+    // 更新項目表格
+    function updateItemsTable() {
+      const tbody = document.querySelector('#itemsTable tbody');
+      const noItemsMessage = document.getElementById('noItemsMessage');
+      
+      // 清空表格
+      tbody.innerHTML = '';
+      
+      // 如果沒有項目，顯示提示訊息
+      if (items.length === 0) {
+        noItemsMessage.style.display = 'block';
+        return;
+      }
+      
+      // 隱藏提示訊息
+      noItemsMessage.style.display = 'none';
+      
+      // 添加項目到表格
+      items.forEach((item, index) => {
+        const row = document.createElement('tr');
+        
+        // 產品名稱
+        const nameCell = document.createElement('td');
+        nameCell.textContent = item.name;
+        row.appendChild(nameCell);
+        
+        // 單價
+        const priceCell = document.createElement('td');
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.className = 'form-control';
+        priceInput.value = item.price;
+        priceInput.min = '0';
+        priceInput.step = '0.01';
+        priceInput.name = `items[${index}][price]`;
+        priceInput.addEventListener('change', function() {
+          item.price = parseFloat(this.value);
+          item.subtotal = item.price * item.quantity;
+          updateSubtotal(row, item);
+          calculateTotals();
+        });
+        priceCell.appendChild(priceInput);
+        row.appendChild(priceCell);
+        
+        // 數量
+        const quantityCell = document.createElement('td');
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'number';
+        quantityInput.className = 'form-control';
+        quantityInput.value = item.quantity;
+        quantityInput.min = '1';
+        quantityInput.name = `items[${index}][quantity]`;
+        quantityInput.addEventListener('change', function() {
+          item.quantity = parseInt(this.value);
+          item.subtotal = item.price * item.quantity;
+          updateSubtotal(row, item);
+          calculateTotals();
+        });
+        quantityCell.appendChild(quantityInput);
+        row.appendChild(quantityCell);
+        
+        // 單位
+        const unitCell = document.createElement('td');
+        const unitInput = document.createElement('input');
+        unitInput.type = 'text';
+        unitInput.className = 'form-control';
+        unitInput.value = item.unit;
+        unitInput.name = `items[${index}][unit]`;
+        unitCell.appendChild(unitInput);
+        row.appendChild(unitCell);
+        
+        // 小計
+        const subtotalCell = document.createElement('td');
+        subtotalCell.className = 'item-subtotal';
+        subtotalCell.textContent = `$${item.subtotal.toFixed(2)}`;
+        row.appendChild(subtotalCell);
+        
+        // 操作
+        const actionCell = document.createElement('td');
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'btn btn-sm btn-outline-danger';
+        deleteButton.innerHTML = '<i class="bi bi-trash"></i>';
+        deleteButton.addEventListener('click', function() {
+          items = items.filter(i => i.id !== item.id);
+          updateItemsTable();
+          calculateTotals();
+        });
+        actionCell.appendChild(deleteButton);
+        row.appendChild(actionCell);
+        
+        // 隱藏字段
+        const hiddenProductId = document.createElement('input');
+        hiddenProductId.type = 'hidden';
+        hiddenProductId.name = `items[${index}][productId]`;
+        hiddenProductId.value = item.productId;
+        row.appendChild(hiddenProductId);
+        
+        // 如果是現有項目，添加項目ID
+        if (item.id.toString().indexOf('new_item_') === -1) {
+          const hiddenItemId = document.createElement('input');
+          hiddenItemId.type = 'hidden';
+          hiddenItemId.name = `items[${index}][id]`;
+          hiddenItemId.value = item.id;
+          row.appendChild(hiddenItemId);
+        }
+        
+        // 添加行到表格
+        tbody.appendChild(row);
+      });
+    }
+    
+    // 更新項目小計
+    function updateSubtotal(row, item) {
+      const subtotalCell = row.querySelector('.item-subtotal');
+      subtotalCell.textContent = `$${item.subtotal.toFixed(2)}`;
+    }
+    
+    // 計算總計
+    function calculateTotals() {
+      // 計算小計
+      const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+      
+      // 獲取折扣率和稅率
+      const discountRate = parseFloat(document.getElementById('discountRate').value) || 0;
+      const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+      
+      // 計算折扣金額
+      const discountAmount = subtotal * (discountRate / 100);
+      
+      // 計算稅前金額
+      const preTaxAmount = subtotal - discountAmount;
+      
+      // 計算稅額
+      const taxAmount = preTaxAmount * (taxRate / 100);
+      
+      // 計算總計
+      const total = preTaxAmount + taxAmount;
+      
+      // 更新顯示
+      document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+      document.getElementById('discountAmount').textContent = `$${discountAmount.toFixed(2)}`;
+      document.getElementById('taxAmount').textContent = `$${taxAmount.toFixed(2)}`;
+      document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+      
+      // 更新隱藏輸入
+      document.getElementById('subtotalInput').value = subtotal;
+      document.getElementById('discountAmountInput').value = discountAmount;
+      document.getElementById('taxAmountInput').value = taxAmount;
+      document.getElementById('totalInput').value = total;
+    }
+    
+    // 監聽折扣率和稅率變化
+    document.getElementById('discountRate').addEventListener('input', calculateTotals);
+    document.getElementById('taxRate').addEventListener('input', calculateTotals);
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

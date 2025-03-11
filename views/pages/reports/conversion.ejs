@@ -1,0 +1,448 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>轉換率報表</h1>
+    <div>
+      <a href="/reports/sales" class="btn btn-outline-primary me-2">
+        <i class="bi bi-graph-up"></i> 銷售報表
+      </a>
+      <a href="/reports/customers" class="btn btn-outline-primary me-2">
+        <i class="bi bi-people"></i> 客戶報表
+      </a>
+      <a href="/reports/products" class="btn btn-outline-primary me-2">
+        <i class="bi bi-box"></i> 產品報表
+      </a>
+      <a href="/" class="btn btn-outline-secondary">
+        <i class="bi bi-house"></i> 返回首頁
+      </a>
+    </div>
+  </div>
+  
+  <!-- 篩選條件 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="card-title mb-0">篩選條件</h5>
+    </div>
+    <div class="card-body">
+      <form method="GET" class="row g-3">
+        <div class="col-md-4">
+          <label for="startDate" class="form-label">起始日期</label>
+          <input type="date" class="form-control" id="startDate" name="startDate" value="<%= startDate %>">
+        </div>
+        <div class="col-md-4">
+          <label for="endDate" class="form-label">結束日期</label>
+          <input type="date" class="form-control" id="endDate" name="endDate" value="<%= endDate %>">
+        </div>
+        <div class="col-md-4">
+          <label for="period" class="form-label">時間間隔</label>
+          <select class="form-select" id="period" name="period">
+            <option value="week" <%= period === 'week' ? 'selected' : '' %>>週</option>
+            <option value="month" <%= period === 'month' ? 'selected' : '' %>>月</option>
+            <option value="quarter" <%= period === 'quarter' ? 'selected' : '' %>>季</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-filter"></i> 套用篩選
+          </button>
+          <a href="/reports/conversion" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-counterclockwise"></i> 重設
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- 圖表 -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">報價轉換率趨勢</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="conversionRateChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">報價金額轉換率趨勢</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="amountConversionChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 狀態分布 -->
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">報價狀態分布</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="statusDistributionChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">當前轉換率統計</h5>
+        </div>
+        <div class="card-body text-center">
+          <% 
+            let totalQuotes = 0;
+            let totalAccepted = 0;
+            let totalAmount = 0;
+            let acceptedAmount = 0;
+            
+            if (locals.conversionStats && conversionStats.length > 0) {
+              conversionStats.forEach(stat => {
+                totalQuotes += stat.total || 0;
+                totalAccepted += stat.accepted || 0;
+                totalAmount += stat.amount || 0;
+                acceptedAmount += stat.acceptedAmount || 0;
+              });
+            }
+            
+            const conversionRate = totalQuotes > 0 ? (totalAccepted / totalQuotes * 100).toFixed(2) : 0;
+            const amountConversionRate = totalAmount > 0 ? (acceptedAmount / totalAmount * 100).toFixed(2) : 0;
+          %>
+          
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <h6 class="text-muted">報價數量轉換率</h6>
+              <div class="position-relative mx-auto" style="width: 150px; height: 150px;">
+                <canvas id="conversionDonut"></canvas>
+                <div class="position-absolute top-50 start-50 translate-middle text-center">
+                  <h3 class="mb-0"><%= conversionRate %>%</h3>
+                  <small class="text-muted">轉換率</small>
+                </div>
+              </div>
+              <div class="mt-2">
+                <small class="text-muted">共 <%= totalQuotes %> 個報價，<br><%= totalAccepted %> 個已接受</small>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-muted">報價金額轉換率</h6>
+              <div class="position-relative mx-auto" style="width: 150px; height: 150px;">
+                <canvas id="amountDonut"></canvas>
+                <div class="position-absolute top-50 start-50 translate-middle text-center">
+                  <h3 class="mb-0"><%= amountConversionRate %>%</h3>
+                  <small class="text-muted">轉換率</small>
+                </div>
+              </div>
+              <div class="mt-2">
+                <small class="text-muted">總金額 $<%= totalAmount.toFixed(2) %>，<br>已接受 $<%= acceptedAmount.toFixed(2) %></small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 轉換率數據表格 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">轉換率數據表</h5>
+      <div>
+        <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
+          <i class="bi bi-printer"></i> 列印報表
+        </button>
+        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+          <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>時間段</th>
+              <th>報價數量</th>
+              <th>草稿</th>
+              <th>已發送</th>
+              <th>已接受</th>
+              <th>已拒絕</th>
+              <th>報價總額</th>
+              <th>接受金額</th>
+              <th>數量轉換率</th>
+              <th>金額轉換率</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (locals.conversionStats && conversionStats.length > 0) { %>
+              <% conversionStats.forEach(stat => { %>
+                <tr>
+                  <td><%= stat.period %></td>
+                  <td><%= stat.total %></td>
+                  <td><%= stat.draft %></td>
+                  <td><%= stat.sent %></td>
+                  <td><%= stat.accepted %></td>
+                  <td><%= stat.rejected %></td>
+                  <td>$<%= stat.amount.toFixed(2) %></td>
+                  <td>$<%= stat.acceptedAmount.toFixed(2) %></td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                        <div class="progress-bar" role="progressbar" style="width: <%= stat.conversionRate %>%" aria-valuenow="<%= stat.conversionRate %>" aria-valuemin="0" aria-valuemax="100"></div>
+                      </div>
+                      <span><%= stat.conversionRate %>%</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: <%= stat.amountConversionRate %>%" aria-valuenow="<%= stat.amountConversionRate %>" aria-valuemin="0" aria-valuemax="100"></div>
+                      </div>
+                      <span><%= stat.amountConversionRate %>%</span>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="10" class="text-center py-4">
+                  <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i> 沒有符合條件的轉換率數據
+                  </div>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 轉換率數據
+    const conversionData = [
+      <% if (locals.conversionStats && conversionStats.length > 0) { %>
+        <% conversionStats.forEach(stat => { %>
+          {
+            period: "<%= stat.period %>",
+            total: <%= stat.total %>,
+            draft: <%= stat.draft %>,
+            sent: <%= stat.sent %>,
+            accepted: <%= stat.accepted %>,
+            rejected: <%= stat.rejected %>,
+            amount: <%= stat.amount %>,
+            acceptedAmount: <%= stat.acceptedAmount %>,
+            conversionRate: <%= stat.conversionRate %>,
+            amountConversionRate: <%= stat.amountConversionRate %>
+          },
+        <% }); %>
+      <% } %>
+    ];
+    
+    if (conversionData.length > 0) {
+      // 報價轉換率趨勢圖
+      const periods = conversionData.map(data => data.period);
+      const conversionRates = conversionData.map(data => data.conversionRate);
+      
+      new Chart(document.getElementById('conversionRateChart'), {
+        type: 'line',
+        data: {
+          labels: periods,
+          datasets: [{
+            label: '轉換率 (%)',
+            data: conversionRates,
+            fill: false,
+            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                callback: function(value) {
+                  return value + '%';
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // 報價金額轉換率趨勢圖
+      const amountConversionRates = conversionData.map(data => data.amountConversionRate);
+      
+      new Chart(document.getElementById('amountConversionChart'), {
+        type: 'line',
+        data: {
+          labels: periods,
+          datasets: [{
+            label: '金額轉換率 (%)',
+            data: amountConversionRates,
+            fill: false,
+            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                callback: function(value) {
+                  return value + '%';
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // 報價狀態分布圖
+      const totalDraft = conversionData.reduce((sum, data) => sum + data.draft, 0);
+      const totalSent = conversionData.reduce((sum, data) => sum + data.sent, 0);
+      const totalAccepted = conversionData.reduce((sum, data) => sum + data.accepted, 0);
+      const totalRejected = conversionData.reduce((sum, data) => sum + data.rejected, 0);
+      
+      new Chart(document.getElementById('statusDistributionChart'), {
+        type: 'pie',
+        data: {
+          labels: ['草稿', '已發送', '已接受', '已拒絕'],
+          datasets: [{
+            data: [totalDraft, totalSent, totalAccepted, totalRejected],
+            backgroundColor: [
+              'rgba(108, 117, 125, 0.8)',
+              'rgba(13, 110, 253, 0.8)',
+              'rgba(25, 135, 84, 0.8)',
+              'rgba(220, 53, 69, 0.8)'
+            ],
+            borderColor: [
+              'rgba(108, 117, 125, 1)',
+              'rgba(13, 110, 253, 1)',
+              'rgba(25, 135, 84, 1)',
+              'rgba(220, 53, 69, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((value / total) * 100);
+                  return `${label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // 計算轉換率總數據
+      const totalQuotes = conversionData.reduce((sum, data) => sum + data.total, 0);
+      const totalAcceptedQuotes = conversionData.reduce((sum, data) => sum + data.accepted, 0);
+      const conversionRate = totalQuotes > 0 ? (totalAcceptedQuotes / totalQuotes * 100).toFixed(2) : 0;
+      
+      // 轉換率環形圖
+      new Chart(document.getElementById('conversionDonut'), {
+        type: 'doughnut',
+        data: {
+          labels: ['已接受', '未接受'],
+          datasets: [{
+            data: [totalAcceptedQuotes, totalQuotes - totalAcceptedQuotes],
+            backgroundColor: [
+              'rgba(25, 135, 84, 0.8)',
+              'rgba(173, 181, 189, 0.8)'
+            ],
+            borderColor: [
+              'rgba(25, 135, 84, 1)',
+              'rgba(173, 181, 189, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '75%',
+          plugins: {
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+      
+      // 計算金額轉換率總數據
+      const totalAmount = conversionData.reduce((sum, data) => sum + data.amount, 0);
+      const totalAcceptedAmount = conversionData.reduce((sum, data) => sum + data.acceptedAmount, 0);
+      const amountConversionRate = totalAmount > 0 ? (totalAcceptedAmount / totalAmount * 100).toFixed(2) : 0;
+      
+      // 金額轉換率環形圖
+      new Chart(document.getElementById('amountDonut'), {
+        type: 'doughnut',
+        data: {
+          labels: ['已接受金額', '未接受金額'],
+          datasets: [{
+            data: [totalAcceptedAmount, totalAmount - totalAcceptedAmount],
+            backgroundColor: [
+              'rgba(13, 110, 253, 0.8)',
+              'rgba(173, 181, 189, 0.8)'
+            ],
+            borderColor: [
+              'rgba(13, 110, 253, 1)',
+              'rgba(173, 181, 189, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '75%',
+          plugins: {
+            legend: {
+              display: false
+            }
+          }
+        }
+      });
+    }
+  });
+  
+  // 列印報表
+  function printReport() {
+    window.print();
+  }
+  
+  // 匯出 Excel（實際應用中應連接到後端 API）
+  function exportToExcel() {
+    alert('此功能需要後端支援，將產生 Excel 檔案下載');
+  }
+</script>
+
+<%- include('../../partials/footer') %> 

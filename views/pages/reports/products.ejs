@@ -1,0 +1,287 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>產品報表</h1>
+    <div>
+      <a href="/reports/sales" class="btn btn-outline-primary me-2">
+        <i class="bi bi-graph-up"></i> 銷售報表
+      </a>
+      <a href="/reports/customers" class="btn btn-outline-primary me-2">
+        <i class="bi bi-people"></i> 客戶報表
+      </a>
+      <a href="/reports/conversion" class="btn btn-outline-primary me-2">
+        <i class="bi bi-arrow-left-right"></i> 轉換率報表
+      </a>
+      <a href="/" class="btn btn-outline-secondary">
+        <i class="bi bi-house"></i> 返回首頁
+      </a>
+    </div>
+  </div>
+
+  <!-- 篩選條件 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <h5 class="card-title mb-0">篩選條件</h5>
+    </div>
+    <div class="card-body">
+      <form method="GET" class="row g-3">
+        <div class="col-md-3">
+          <label for="startDate" class="form-label">起始日期</label>
+          <input type="date" class="form-control" id="startDate" name="startDate" value="<%= startDate %>">
+        </div>
+        <div class="col-md-3">
+          <label for="endDate" class="form-label">結束日期</label>
+          <input type="date" class="form-control" id="endDate" name="endDate" value="<%= endDate %>">
+        </div>
+        <div class="col-md-3">
+          <label for="categoryId" class="form-label">產品分類</label>
+          <select class="form-select" id="categoryId" name="categoryId">
+            <option value="all" <%= categoryId === 'all' ? 'selected' : '' %>>所有分類</option>
+            <% if (locals.categories && categories.length > 0) { %>
+              <% categories.forEach(category => { %>
+                <option value="<%= category.id %>" <%= categoryId == category.id ? 'selected' : '' %>><%= category.name %></option>
+              <% }); %>
+            <% } %>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label for="sort" class="form-label">排序方式</label>
+          <select class="form-select" id="sort" name="sort">
+            <option value="amount" <%= sort === 'amount' ? 'selected' : '' %>>依總金額</option>
+            <option value="quantity" <%= sort === 'quantity' ? 'selected' : '' %>>依銷售數量</option>
+            <option value="conversion" <%= sort === 'conversion' ? 'selected' : '' %>>依轉換率</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-filter"></i> 套用篩選
+          </button>
+          <a href="/reports/products" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-counterclockwise"></i> 重設
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 產品數據表格 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">產品銷售數據</h5>
+      <div>
+        <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
+          <i class="bi bi-printer"></i> 列印報表
+        </button>
+        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+          <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>產品名稱</th>
+              <th>SKU</th>
+              <th>單價</th>
+              <th>分類</th>
+              <th>報價次數</th>
+              <th>總數量</th>
+              <th>總金額</th>
+              <th>接受數量</th>
+              <th>接受金額</th>
+              <th>轉換率</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (locals.productStats && productStats.length > 0) { %>
+              <% productStats.forEach(product => { %>
+                <tr>
+                  <td><a href="/products/<%= product.id %>"><%= product.name %></a></td>
+                  <td><%= product.sku || '—' %></td>
+                  <td>$<%= product.price.toFixed(2) %></td>
+                  <td><%= product.category %></td>
+                  <td><%= product.totalQuotes %></td>
+                  <td><%= product.totalQuantity %></td>
+                  <td>$<%= product.totalAmount.toFixed(2) %></td>
+                  <td><%= product.acceptedQuantity %></td>
+                  <td>$<%= product.acceptedAmount.toFixed(2) %></td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                        <div class="progress-bar" role="progressbar" style="width: <%= product.conversionRate %>%" aria-valuenow="<%= product.conversionRate %>" aria-valuemin="0" aria-valuemax="100"></div>
+                      </div>
+                      <span><%= product.conversionRate %>%</span>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="10" class="text-center py-4">
+                  <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle me-2"></i> 沒有符合條件的產品數據
+                  </div>
+                </td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 圖表統計 -->
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">銷售金額統計</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="salesChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">銷售數量統計</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="quantityChart" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 請在此處添加 Chart.js 圖表初始化
+    
+    // 在實際應用中，這些數據應該由後端提供
+    const productData = [
+      <% if (locals.productStats && productStats.length > 0) { %>
+        <% productStats.slice(0, 10).forEach(product => { %>
+          {
+            name: "<%= product.name %>",
+            totalAmount: <%= product.totalAmount %>,
+            totalQuantity: <%= product.totalQuantity %>,
+            acceptedAmount: <%= product.acceptedAmount %>,
+            acceptedQuantity: <%= product.acceptedQuantity %>
+          },
+        <% }); %>
+      <% } %>
+    ];
+    
+    // 生成隨機顏色
+    function generateColors(count) {
+      const colors = [];
+      for (let i = 0; i < count; i++) {
+        const hue = (i * 30) % 360;
+        colors.push(`hsla(${hue}, 70%, 60%, 0.8)`);
+      }
+      return colors;
+    }
+    
+    // 繪製銷售金額圖表
+    if (productData.length > 0) {
+      const salesLabels = productData.map(product => product.name);
+      const salesData = productData.map(product => product.totalAmount);
+      const acceptedSalesData = productData.map(product => product.acceptedAmount);
+      const salesColors = generateColors(productData.length);
+      
+      new Chart(document.getElementById('salesChart'), {
+        type: 'bar',
+        data: {
+          labels: salesLabels,
+          datasets: [
+            {
+              label: '總銷售金額',
+              data: salesData,
+              backgroundColor: salesColors,
+              borderColor: salesColors.map(color => color.replace('0.8', '1')),
+              borderWidth: 1
+            },
+            {
+              label: '已接受金額',
+              data: acceptedSalesData,
+              backgroundColor: 'rgba(60, 179, 113, 0.8)',
+              borderColor: 'rgba(60, 179, 113, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '$' + value;
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      // 繪製銷售數量圖表
+      const quantityLabels = productData.map(product => product.name);
+      const quantityData = productData.map(product => product.totalQuantity);
+      const acceptedQuantityData = productData.map(product => product.acceptedQuantity);
+      const quantityColors = generateColors(productData.length);
+      
+      new Chart(document.getElementById('quantityChart'), {
+        type: 'bar',
+        data: {
+          labels: quantityLabels,
+          datasets: [
+            {
+              label: '總銷售數量',
+              data: quantityData,
+              backgroundColor: quantityColors,
+              borderColor: quantityColors.map(color => color.replace('0.8', '1')),
+              borderWidth: 1
+            },
+            {
+              label: '已接受數量',
+              data: acceptedQuantityData,
+              backgroundColor: 'rgba(75, 192, 192, 0.8)',
+              borderColor: 'rgba(75, 192, 192, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+  });
+  
+  // 列印報表
+  function printReport() {
+    window.print();
+  }
+  
+  // 匯出 Excel（實際應用中應連接到後端 API）
+  function exportToExcel() {
+    alert('此功能需要後端支援，將產生 Excel 檔案下載');
+  }
+</script>
+
+<%- include('../../partials/footer') %> 

@@ -1,0 +1,203 @@
+/* 使用者偏好設定 CSS */
+
+/* 主題模式 */
+body.theme-light {
+  --bg-color: #ffffff;
+  --text-color: #333333;
+  --card-bg: #ffffff;
+  --border-color: #dee2e6;
+  --input-bg: #ffffff;
+  --input-border: #ced4da;
+  --table-stripe: rgba(0, 0, 0, 0.05);
+  --hover-bg: rgba(0, 0, 0, 0.075);
+}
+
+body.theme-dark {
+  --bg-color: #121212;
+  --text-color: #e0e0e0;
+  --card-bg: #1e1e1e;
+  --border-color: #444444;
+  --input-bg: #2d2d2d;
+  --input-border: #555555;
+  --table-stripe: rgba(255, 255, 255, 0.05);
+  --hover-bg: rgba(255, 255, 255, 0.075);
+}
+
+/* 顏色方案 */
+body.color-blue {
+  --primary-color: #0d6efd;
+  --primary-hover: #0b5ed7;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+}
+
+body.color-green {
+  --primary-color: #198754;
+  --primary-hover: #157347;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+}
+
+body.color-purple {
+  --primary-color: #6f42c1;
+  --primary-hover: #5e37a6;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+}
+
+body.color-orange {
+  --primary-color: #fd7e14;
+  --primary-hover: #e76b00;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+}
+
+body.color-teal {
+  --primary-color: #20c997;
+  --primary-hover: #1ba87e;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+}
+
+/* 字體大小 */
+body.font-small {
+  --base-font-size: 0.875rem;
+  --h1-size: 1.75rem;
+  --h2-size: 1.5rem;
+  --h3-size: 1.25rem;
+  --h4-size: 1.125rem;
+  --h5-size: 1rem;
+  --h6-size: 0.875rem;
+}
+
+body.font-medium {
+  --base-font-size: 1rem;
+  --h1-size: 2rem;
+  --h2-size: 1.75rem;
+  --h3-size: 1.5rem;
+  --h4-size: 1.25rem;
+  --h5-size: 1.125rem;
+  --h6-size: 1rem;
+}
+
+body.font-large {
+  --base-font-size: 1.125rem;
+  --h1-size: 2.25rem;
+  --h2-size: 2rem;
+  --h3-size: 1.75rem;
+  --h4-size: 1.5rem;
+  --h5-size: 1.25rem;
+  --h6-size: 1.125rem;
+}
+
+body.font-x-large {
+  --base-font-size: 1.25rem;
+  --h1-size: 2.5rem;
+  --h2-size: 2.25rem;
+  --h3-size: 2rem;
+  --h4-size: 1.75rem;
+  --h5-size: 1.5rem;
+  --h6-size: 1.25rem;
+}
+
+/* 字體系列 */
+body.font-system {
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body.font-serif {
+  --font-family: Georgia, "Times New Roman", Times, serif;
+}
+
+body.font-sans-serif {
+  --font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body.font-monospace {
+  --font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* 應用變數 */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  font-size: var(--base-font-size);
+}
+
+h1 { font-size: var(--h1-size); }
+h2 { font-size: var(--h2-size); }
+h3 { font-size: var(--h3-size); }
+h4 { font-size: var(--h4-size); }
+h5 { font-size: var(--h5-size); }
+h6 { font-size: var(--h6-size); }
+
+.card {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.form-control, .form-select {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-color);
+}
+
+.table {
+  color: var(--text-color);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--table-stripe);
+}
+
+.table-hover tbody tr:hover {
+  background-color: var(--hover-bg);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-outline-primary {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover, .btn-outline-primary:focus {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.text-primary {
+  color: var(--primary-color) !important;
+}
+
+.bg-primary {
+  background-color: var(--primary-color) !important;
+}
+
+.border-primary {
+  border-color: var(--primary-color) !important;
+} 

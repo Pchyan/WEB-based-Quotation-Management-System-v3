@@ -1,0 +1,5 @@
+name,description,sku,price,unit,category_id
+商品A,這是商品A的描述,SKU001,100,個,1
+商品B,這是商品B的描述,SKU002,200,盒,1
+服務C,這是服務C的描述,SVC001,500,次,2
+耗材D,這是耗材D的描述,MAT001,50,包,3 

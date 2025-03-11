@@ -1,0 +1,77 @@
+<%- include('../../partials/header') %>
+
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-primary text-white text-center">
+          <h4>註冊帳號</h4>
+        </div>
+        <div class="card-body">
+          <% if (error) { %>
+            <div class="alert alert-danger" role="alert">
+              <%= error %>
+            </div>
+          <% } %>
+          <form action="/auth/register" method="POST">
+            <div class="form-group">
+              <label for="username">使用者名稱</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-user"></i></span>
+                </div>
+                <input type="text" class="form-control" id="username" name="username" value="<%= typeof user !== 'undefined' && user.username ? user.username : '' %>" required>
+              </div>
+              <small class="form-text text-muted">使用者名稱至少需要3個字元</small>
+            </div>
+            <div class="form-group">
+              <label for="email">電子郵件</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                </div>
+                <input type="email" class="form-control" id="email" name="email" value="<%= typeof user !== 'undefined' && user.email ? user.email : '' %>" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="fullName">全名</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                </div>
+                <input type="text" class="form-control" id="fullName" name="fullName" value="<%= typeof user !== 'undefined' && user.fullName ? user.fullName : '' %>" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="password">密碼</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                </div>
+                <input type="password" class="form-control" id="password" name="password" required>
+              </div>
+              <small class="form-text text-muted">密碼至少需要6個字元</small>
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">確認密碼</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                </div>
+                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary btn-block">註冊</button>
+            </div>
+          </form>
+          <div class="text-center mt-3">
+            <p>已有帳號？ <a href="/auth/login">立即登入</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/footer') %> 

@@ -1,0 +1,148 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>搜尋結果: "<%= searchQuery %>"</h1>
+    <div>
+      <form action="/customers/search" method="GET" class="d-inline-block me-2">
+        <div class="input-group">
+          <input type="text" name="q" class="form-control" placeholder="搜尋客戶..." value="<%= searchQuery %>">
+          <button class="btn btn-outline-secondary" type="submit">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+      </form>
+      <a href="/customers/create" class="btn btn-primary">
+        <i class="bi bi-plus"></i> 新增客戶
+      </a>
+    </div>
+  </div>
+  
+  <div class="mb-3">
+    <a href="/customers" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> 返回客戶列表
+    </a>
+  </div>
+
+  <% if (customers && customers.length > 0) { %>
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <h5 class="card-title mb-0">找到 <%= customers.length %> 個符合的客戶</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>客戶名稱</th>
+              <th>聯絡人</th>
+              <th>電子郵件</th>
+              <th>電話</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% customers.forEach(customer => { %>
+              <tr>
+                <td><a href="/customers/<%= customer.id %>"><%= customer.name %></a></td>
+                <td><%= customer.contactPerson || '—' %></td>
+                <td><%= customer.email || '—' %></td>
+                <td><%= customer.phone || '—' %></td>
+                <td>
+                  <div class="btn-group">
+                    <a href="/customers/<%= customer.id %>" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="/customers/edit/<%= customer.id %>" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-btn" 
+                            data-id="<%= customer.id %>" 
+                            data-name="<%= customer.name %>"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#deleteModal">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i> 找不到符合「<%= searchQuery %>」的客戶
+        </div>
+        <p>建議：</p>
+        <ul>
+          <li>檢查拼字是否正確</li>
+          <li>嘗試使用不同的關鍵字</li>
+          <li>使用較短或較一般的關鍵字</li>
+        </ul>
+      </div>
+    </div>
+  <% } %>
+</div>
+
+<!-- 刪除確認模態框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除客戶「<span id="customerName"></span>」嗎？此操作無法撤銷。
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.delete-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      document.getElementById('customerName').textContent = name;
+      document.getElementById('deleteForm').action = `/customers/delete/${id}`;
+    });
+  });
+  
+  // 處理刪除表單提交
+  document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/customers';
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

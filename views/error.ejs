@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<div class="container mt-5">
+  <div class="card shadow">
+    <div class="card-header bg-danger text-white">
+      <h3 class="mb-0">伺服器錯誤</h3>
+    </div>
+    <div class="card-body">
+      <h4 class="text-danger mb-4">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> <%= message %>
+      </h4>
+      
+      <% if (process.env.NODE_ENV === 'development' && error) { %>
+        <hr>
+        <div class="card bg-light mb-3">
+          <div class="card-header">錯誤詳情</div>
+          <div class="card-body">
+            <pre class="mb-0"><code><%= error.stack %></code></pre>
+          </div>
+        </div>
+      <% } %>
+      
+      <div class="mt-4">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary me-2">
+          <i class="bi bi-arrow-left"></i> 返回上一頁
+        </a>
+        <a href="/" class="btn btn-primary">
+          <i class="bi bi-house"></i> 返回首頁
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %> 

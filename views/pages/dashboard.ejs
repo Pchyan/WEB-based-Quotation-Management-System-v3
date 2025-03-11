@@ -1,0 +1,128 @@
+<%- include('../partials/header') %>
+<%- include('../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="jumbotron">
+        <h1 class="display-4">歡迎使用<%= locals.appName %></h1>
+        <p class="lead">這是一個完整功能的網頁版報價系統，幫助您管理客戶、產品和報價單。</p>
+        <hr class="my-4">
+        <p>使用左側選單導航到不同功能區域，或使用下方的快速連結。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-md-4 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">客戶管理</h5>
+          <p class="card-text">管理您的客戶資料，查看客戶的報價歷史。</p>
+          <a href="/customers" class="btn btn-primary">前往客戶管理</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">產品管理</h5>
+          <p class="card-text">管理您的產品和服務項目，設定價格和描述。</p>
+          <a href="/products" class="btn btn-primary">前往產品管理</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">報價單</h5>
+          <p class="card-text">創建和管理報價單，追蹤報價單狀態。</p>
+          <a href="/quotes" class="btn btn-primary">前往報價單</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-2">
+    <div class="col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">最近報價單</h5>
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>報價單號</th>
+                  <th>客戶</th>
+                  <th>日期</th>
+                  <th>金額</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (typeof recentQuotes !== 'undefined' && recentQuotes.length > 0) { %>
+                  <% recentQuotes.forEach(quote => { %>
+                    <tr>
+                      <td><a href="/quotes/<%= quote.id %>"><%= quote.quote_number %></a></td>
+                      <td><%= quote.customer_name %></td>
+                      <td><%= new Date(quote.issue_date).toLocaleDateString() %></td>
+                      <td><%= quote.total.toLocaleString() %></td>
+                      <td><span class="badge badge-<%= getStatusBadgeClass(quote.status) %>"><%= quote.status %></span></td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center">尚無報價單</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title">統計資訊</h5>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <div class="card bg-light">
+                <div class="card-body text-center">
+                  <h3><%= typeof stats !== 'undefined' ? stats.customerCount : 0 %></h3>
+                  <p class="mb-0">客戶數量</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 mb-3">
+              <div class="card bg-light">
+                <div class="card-body text-center">
+                  <h3><%= typeof stats !== 'undefined' ? stats.productCount : 0 %></h3>
+                  <p class="mb-0">產品數量</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 mb-3">
+              <div class="card bg-light">
+                <div class="card-body text-center">
+                  <h3><%= typeof stats !== 'undefined' ? stats.quoteCount : 0 %></h3>
+                  <p class="mb-0">報價單數量</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 mb-3">
+              <div class="card bg-light">
+                <div class="card-body text-center">
+                  <h3><%= typeof stats !== 'undefined' ? stats.acceptedQuoteCount : 0 %></h3>
+                  <p class="mb-0">已接受報價</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %> 

@@ -1,0 +1,285 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>報價單 #<%= quote.quoteNumber %></h1>
+    <div>
+      <div class="btn-group me-2">
+        <a href="/quotes/pdf/<%= quote.id %>" target="_blank" class="btn btn-outline-primary">
+          <i class="bi bi-file-pdf"></i> PDF
+        </a>
+        <a href="/quotes/copy/<%= quote.id %>" class="btn btn-outline-secondary">
+          <i class="bi bi-files"></i> 複製
+        </a>
+      </div>
+      <div class="btn-group me-2">
+        <a href="/quotes/edit/<%= quote.id %>" class="btn btn-outline-primary">
+          <i class="bi bi-pencil"></i> 編輯
+        </a>
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteQuoteModal">
+          <i class="bi bi-trash"></i> 刪除
+        </button>
+      </div>
+      <a href="/quotes" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回列表
+      </a>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- 左側：報價基本資訊 -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">基本資訊</h5>
+          <span class="badge <%= getStatusBadgeClass(quote.status) %>"><%= getStatusText(quote.status) %></span>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">客戶</label>
+            <div>
+              <a href="/customers/view/<%= quote.customer.id %>"><%= quote.customer.name %></a>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label text-muted">報價日期</label>
+              <div><%= formatDate(quote.quoteDate) %></div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label text-muted">有效期限</label>
+              <div><%= formatDate(quote.validUntil) %></div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">建立者</label>
+            <div><%= quote.user ? quote.user.name : '系統' %></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">建立時間</label>
+            <div><%= formatDateTime(quote.createdAt) %></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">最後更新</label>
+            <div><%= formatDateTime(quote.updatedAt) %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">備註與條款</h5>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">備註</label>
+            <div class="p-2 bg-light rounded">
+              <%= quote.notes || '無備註' %>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">條款與條件</label>
+            <div class="p-2 bg-light rounded">
+              <%= quote.terms || '無條款' %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右側：報價項目與總計 -->
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">報價項目</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 40%">產品/服務</th>
+                  <th style="width: 15%">單價</th>
+                  <th style="width: 10%">數量</th>
+                  <th style="width: 10%">單位</th>
+                  <th style="width: 15%" class="text-end">小計</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (quote.items && quote.items.length > 0) { %>
+                  <% quote.items.forEach(item => { %>
+                    <tr>
+                      <td>
+                        <% if (item.productId) { %>
+                          <a href="/products/view/<%= item.productId %>"><%= item.name %></a>
+                        <% } else { %>
+                          <%= item.name %>
+                        <% } %>
+                      </td>
+                      <td>$<%= item.price.toFixed(2) %></td>
+                      <td><%= item.quantity %></td>
+                      <td><%= item.unit || '個' %></td>
+                      <td class="text-end">$<%= (item.price * item.quantity).toFixed(2) %></td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center">無報價項目</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+          <h5 class="card-title mb-0">總計</h5>
+        </div>
+        <div class="card-body">
+          <div class="row mb-2">
+            <div class="col-md-8 text-end">
+              <strong>小計：</strong>
+            </div>
+            <div class="col-md-4 text-end">
+              $<%= quote.subtotal.toFixed(2) %>
+            </div>
+          </div>
+
+          <% if (quote.discountRate > 0) { %>
+            <div class="row mb-2">
+              <div class="col-md-8 text-end">
+                <strong>折扣 (<%= quote.discountRate %>%)：</strong>
+              </div>
+              <div class="col-md-4 text-end">
+                -$<%= quote.discountAmount.toFixed(2) %>
+              </div>
+            </div>
+          <% } %>
+
+          <% if (quote.taxRate > 0) { %>
+            <div class="row mb-2">
+              <div class="col-md-8 text-end">
+                <strong>稅額 (<%= quote.taxRate %>%)：</strong>
+              </div>
+              <div class="col-md-4 text-end">
+                $<%= quote.taxAmount.toFixed(2) %>
+              </div>
+            </div>
+          <% } %>
+
+          <hr>
+
+          <div class="row">
+            <div class="col-md-8 text-end">
+              <strong>總計：</strong>
+            </div>
+            <div class="col-md-4 text-end">
+              <h4>$<%= quote.total.toFixed(2) %></h4>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <% if (quote.status === 'draft' || quote.status === 'sent') { %>
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">更新狀態</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <% if (quote.status === 'draft') { %>
+                <form action="/quotes/status/<%= quote.id %>" method="POST" class="d-inline">
+                  <input type="hidden" name="status" value="sent">
+                  <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-envelope"></i> 標記為已發送
+                  </button>
+                </form>
+              <% } %>
+              
+              <% if (quote.status === 'draft' || quote.status === 'sent') { %>
+                <div>
+                  <form action="/quotes/status/<%= quote.id %>" method="POST" class="d-inline">
+                    <input type="hidden" name="status" value="accepted">
+                    <button type="submit" class="btn btn-success me-2">
+                      <i class="bi bi-check-lg"></i> 標記為已接受
+                    </button>
+                  </form>
+                  
+                  <form action="/quotes/status/<%= quote.id %>" method="POST" class="d-inline">
+                    <input type="hidden" name="status" value="rejected">
+                    <button type="submit" class="btn btn-danger">
+                      <i class="bi bi-x-lg"></i> 標記為已拒絕
+                    </button>
+                  </form>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除報價確認模態框 -->
+<div class="modal fade" id="deleteQuoteModal" tabindex="-1" aria-labelledby="deleteQuoteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteQuoteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除報價單 #<%= quote.quoteNumber %> 嗎？此操作無法撤銷。
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form action="/quotes/delete/<%= quote.id %>" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function getStatusBadgeClass(status) {
+    switch(status) {
+      case 'draft': return 'bg-secondary';
+      case 'sent': return 'bg-primary';
+      case 'accepted': return 'bg-success';
+      case 'rejected': return 'bg-danger';
+      default: return 'bg-secondary';
+    }
+  }
+  
+  function getStatusText(status) {
+    switch(status) {
+      case 'draft': return '草稿';
+      case 'sent': return '已發送';
+      case 'accepted': return '已接受';
+      case 'rejected': return '已拒絕';
+      default: return '未知';
+    }
+  }
+  
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-TW');
+  }
+  
+  function formatDateTime(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-TW') + ' ' + date.toLocaleTimeString('zh-TW');
+  }
+</script>
+
+<%- include('../../partials/footer') %> 

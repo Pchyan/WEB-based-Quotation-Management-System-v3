@@ -1,0 +1,558 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>建立新報價單</h1>
+    <a href="/quotes" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> 返回報價單列表
+    </a>
+  </div>
+
+  <% if (locals.errors && errors.length > 0) { %>
+    <div class="alert alert-danger mb-4">
+      <ul class="mb-0">
+        <% errors.forEach(error => { %>
+          <li><%= error.msg %></li>
+        <% }); %>
+      </ul>
+    </div>
+  <% } %>
+
+  <form action="/quotes/create" method="POST">
+    <div class="row">
+      <!-- 左側欄 - 報價單基本資訊 -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">報價單資訊</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="quoteNumber" class="form-label">報價單號</label>
+              <input type="text" class="form-control" id="quoteNumber" name="quoteNumber" value="<%= locals.quoteNumber || 'QT-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(Math.random()*1000).toString().padStart(3,'0') %>" readonly>
+              <div class="form-text">系統自動生成</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="customerId" class="form-label">客戶 <span class="text-danger">*</span></label>
+              <select class="form-select" id="customerId" name="customerId" required>
+                <option value="" selected disabled>選擇客戶</option>
+                <% if (locals.customers && customers.length > 0) { %>
+                  <% customers.forEach(customer => { %>
+                    <option value="<%= customer.id %>" <%= locals.customerId && customerId == customer.id ? 'selected' : '' %>><%= customer.name %></option>
+                  <% }); %>
+                <% } %>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label for="title" class="form-label">報價標題 <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="title" name="title" value="<%= locals.title || '' %>" required>
+            </div>
+
+            <div class="mb-3">
+              <label for="description" class="form-label">報價說明</label>
+              <textarea class="form-control" id="description" name="description" rows="3"><%= locals.description || '' %></textarea>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="issueDate" class="form-label">報價日期 <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control" id="issueDate" name="issueDate" value="<%= locals.issueDate || new Date().toISOString().split('T')[0] %>" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="validUntil" class="form-label">有效期限 <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control" id="validUntil" name="validUntil" value="<%= locals.validUntil || (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0]; })() %>" required>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側欄 - 報價單設定 -->
+      <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-white">
+            <h5 class="card-title mb-0">報價設定</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="status" class="form-label">狀態</label>
+              <select class="form-select" id="status" name="status">
+                <option value="draft" <%= locals.status && status === 'draft' ? 'selected' : '' %>>草稿</option>
+                <option value="sent" <%= locals.status && status === 'sent' ? 'selected' : '' %>>已發送</option>
+                <option value="accepted" <%= locals.status && status === 'accepted' ? 'selected' : '' %>>已接受</option>
+                <option value="rejected" <%= locals.status && status === 'rejected' ? 'selected' : '' %>>已拒絕</option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label for="discountType" class="form-label">折扣類型</label>
+              <select class="form-select" id="discountType" name="discountType">
+                <option value="none" <%= locals.discountType && discountType === 'none' ? 'selected' : '' %>>無折扣</option>
+                <option value="percentage" <%= locals.discountType && discountType === 'percentage' ? 'selected' : '' %>>百分比折扣</option>
+                <option value="fixed" <%= locals.discountType && discountType === 'fixed' ? 'selected' : '' %>>固定金額折扣</option>
+              </select>
+            </div>
+
+            <div class="mb-3 discount-value-container" style="display: none;">
+              <label for="discountValue" class="form-label">折扣值</label>
+              <input type="number" class="form-control" id="discountValue" name="discountValue" value="<%= locals.discountValue || 0 %>" step="0.01" min="0">
+              <div class="form-text discount-hint"></div>
+            </div>
+
+            <div class="mb-3">
+              <label for="taxRate" class="form-label">稅率 (%)</label>
+              <input type="number" class="form-control" id="taxRate" name="taxRate" value="<%= locals.taxRate || 5 %>" step="0.01" min="0">
+            </div>
+
+            <div class="mb-3">
+              <label for="notes" class="form-label">備註</label>
+              <textarea class="form-control" id="notes" name="notes" rows="3"><%= locals.notes || '' %></textarea>
+            </div>
+
+            <div class="mb-3">
+              <label for="terms" class="form-label">條款與條件</label>
+              <textarea class="form-control" id="terms" name="terms" rows="3"><%= locals.terms || '1. 此報價單有效期為30天。\n2. 付款條件：全額預付。\n3. 交貨時間：付款確認後2-4週。' %></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 產品項目 -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">產品項目</h5>
+        <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">
+          <i class="bi bi-plus"></i> 新增項目
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0" id="itemsTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 35%">產品</th>
+                <th style="width: 15%">單價</th>
+                <th style="width: 15%">數量</th>
+                <th style="width: 15%">單位</th>
+                <th style="width: 15%">小計</th>
+                <th style="width: 5%"></th>
+              </tr>
+            </thead>
+            <tbody id="itemsTableBody">
+              <!-- 項目將通過JavaScript動態添加 -->
+              <tr class="no-items-row">
+                <td colspan="6" class="text-center py-3">尚未添加任何項目</td>
+              </tr>
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="4" class="text-end">小計：</td>
+                <td class="subtotal-display">$0.00</td>
+                <td></td>
+              </tr>
+              <tr class="discount-row" style="display: none;">
+                <td colspan="4" class="text-end">折扣：</td>
+                <td class="discount-display">-$0.00</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colspan="4" class="text-end">稅金 (<span class="tax-rate-display">5</span>%)：</td>
+                <td class="tax-display">$0.00</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colspan="4" class="text-end fw-bold">總計：</td>
+                <td class="total-display fw-bold">$0.00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 隱藏的項目數據 -->
+    <div id="itemsData"></div>
+
+    <!-- 提交按鈕 -->
+    <div class="d-flex justify-content-end mb-5">
+      <button type="button" class="btn btn-outline-secondary me-2" onclick="window.history.back();">取消</button>
+      <button type="submit" class="btn btn-primary">儲存報價單</button>
+    </div>
+  </form>
+
+  <!-- 產品選擇模態框 -->
+  <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="productModalLabel">選擇產品</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <input type="text" class="form-control" id="productSearch" placeholder="搜尋產品...">
+          </div>
+          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover" id="productsTable">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th>產品名稱</th>
+                  <th>編號</th>
+                  <th>價格</th>
+                  <th>單位</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (locals.products && products.length > 0) { %>
+                  <% products.forEach(product => { %>
+                    <tr data-id="<%= product.id %>" data-name="<%= product.name %>" data-price="<%= product.price %>" data-unit="<%= product.unit || '' %>" data-sku="<%= product.sku || '' %>">
+                      <td><%= product.name %></td>
+                      <td><%= product.sku || '—' %></td>
+                      <td>$<%= product.price.toFixed(2) %></td>
+                      <td><%= product.unit || '—' %></td>
+                      <td>
+                        <button type="button" class="btn btn-sm btn-primary select-product-btn">選擇</button>
+                      </td>
+                    </tr>
+                  <% }); %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="5" class="text-center">沒有可用的產品</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 初始化變數
+  let items = [];
+  let subtotal = 0;
+  let discount = 0;
+  let tax = 0;
+  let total = 0;
+  let currentItemIndex = -1;
+  let productModal;
+  
+  // DOM 載入完成後執行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 初始化產品選擇模態框
+    productModal = new bootstrap.Modal(document.getElementById('productModal'));
+    
+    // 設置折扣類型變更事件
+    const discountTypeSelect = document.getElementById('discountType');
+    const discountValueContainer = document.querySelector('.discount-value-container');
+    const discountHint = document.querySelector('.discount-hint');
+    
+    discountTypeSelect.addEventListener('change', function() {
+      if (this.value === 'none') {
+        discountValueContainer.style.display = 'none';
+        document.getElementById('discountValue').value = 0;
+      } else {
+        discountValueContainer.style.display = 'block';
+        if (this.value === 'percentage') {
+          discountHint.textContent = '請輸入百分比值 (例如: 10 表示 10%)';
+        } else {
+          discountHint.textContent = '請輸入固定金額';
+        }
+      }
+      calculateTotals();
+    });
+    
+    // 初始化折扣顯示
+    discountTypeSelect.dispatchEvent(new Event('change'));
+    
+    // 稅率變更事件
+    document.getElementById('taxRate').addEventListener('input', function() {
+      document.querySelector('.tax-rate-display').textContent = this.value;
+      calculateTotals();
+    });
+    
+    // 折扣值變更事件
+    document.getElementById('discountValue').addEventListener('input', calculateTotals);
+    
+    // 添加項目按鈕點擊事件
+    document.getElementById('addItemBtn').addEventListener('click', function() {
+      currentItemIndex = -1;
+      productModal.show();
+    });
+    
+    // 產品搜尋功能
+    document.getElementById('productSearch').addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase();
+      const rows = document.querySelectorAll('#productsTable tbody tr');
+      
+      rows.forEach(row => {
+        const productName = row.querySelector('td:first-child').textContent.toLowerCase();
+        const productSku = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+        
+        if (productName.includes(searchTerm) || productSku.includes(searchTerm)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+    
+    // 選擇產品按鈕點擊事件
+    document.querySelectorAll('.select-product-btn').forEach(button => {
+      button.addEventListener('click', function() {
+        const row = this.closest('tr');
+        const productId = row.dataset.id;
+        const productName = row.dataset.name;
+        const productPrice = parseFloat(row.dataset.price);
+        const productUnit = row.dataset.unit;
+        const productSku = row.dataset.sku;
+        
+        if (currentItemIndex === -1) {
+          // 添加新項目
+          addItem({
+            productId,
+            productName,
+            price: productPrice,
+            quantity: 1,
+            unit: productUnit,
+            sku: productSku
+          });
+        } else {
+          // 更新現有項目
+          items[currentItemIndex].productId = productId;
+          items[currentItemIndex].productName = productName;
+          items[currentItemIndex].price = productPrice;
+          items[currentItemIndex].unit = productUnit;
+          items[currentItemIndex].sku = productSku;
+          renderItems();
+        }
+        
+        productModal.hide();
+      });
+    });
+    
+    // 表單提交前處理
+    document.querySelector('form').addEventListener('submit', function(e) {
+      if (items.length === 0) {
+        e.preventDefault();
+        alert('請至少添加一個產品項目');
+        return;
+      }
+      
+      // 將項目數據添加到表單
+      const itemsDataContainer = document.getElementById('itemsData');
+      itemsDataContainer.innerHTML = '';
+      
+      items.forEach((item, index) => {
+        for (const key in item) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = `items[${index}][${key}]`;
+          input.value = item[key];
+          itemsDataContainer.appendChild(input);
+        }
+      });
+      
+      // 添加計算的總計值
+      const subtotalInput = document.createElement('input');
+      subtotalInput.type = 'hidden';
+      subtotalInput.name = 'subtotal';
+      subtotalInput.value = subtotal;
+      itemsDataContainer.appendChild(subtotalInput);
+      
+      const taxAmountInput = document.createElement('input');
+      taxAmountInput.type = 'hidden';
+      taxAmountInput.name = 'taxAmount';
+      taxAmountInput.value = tax;
+      itemsDataContainer.appendChild(taxAmountInput);
+      
+      const totalInput = document.createElement('input');
+      totalInput.type = 'hidden';
+      totalInput.name = 'total';
+      totalInput.value = total;
+      itemsDataContainer.appendChild(totalInput);
+    });
+  });
+  
+  // 添加項目
+  function addItem(item) {
+    items.push({
+      ...item,
+      subtotal: item.price * item.quantity
+    });
+    renderItems();
+  }
+  
+  // 渲染項目列表
+  function renderItems() {
+    const tbody = document.getElementById('itemsTableBody');
+    const noItemsRow = document.querySelector('.no-items-row');
+    
+    // 清空表格
+    tbody.innerHTML = '';
+    
+    if (items.length === 0) {
+      tbody.appendChild(noItemsRow);
+    } else {
+      items.forEach((item, index) => {
+        const row = document.createElement('tr');
+        
+        // 產品資訊
+        const productCell = document.createElement('td');
+        productCell.innerHTML = `
+          <div>
+            <strong>${item.productName}</strong>
+            ${item.sku ? `<div class="text-muted small">SKU: ${item.sku}</div>` : ''}
+          </div>
+        `;
+        
+        // 單價
+        const priceCell = document.createElement('td');
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.className = 'form-control form-control-sm';
+        priceInput.value = item.price;
+        priceInput.step = '0.01';
+        priceInput.min = '0';
+        priceInput.addEventListener('input', function() {
+          item.price = parseFloat(this.value) || 0;
+          item.subtotal = item.price * item.quantity;
+          updateItemSubtotal(index);
+          calculateTotals();
+        });
+        priceCell.appendChild(priceInput);
+        
+        // 數量
+        const quantityCell = document.createElement('td');
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'number';
+        quantityInput.className = 'form-control form-control-sm';
+        quantityInput.value = item.quantity;
+        quantityInput.min = '1';
+        quantityInput.step = '1';
+        quantityInput.addEventListener('input', function() {
+          item.quantity = parseInt(this.value) || 0;
+          item.subtotal = item.price * item.quantity;
+          updateItemSubtotal(index);
+          calculateTotals();
+        });
+        quantityCell.appendChild(quantityInput);
+        
+        // 單位
+        const unitCell = document.createElement('td');
+        const unitInput = document.createElement('input');
+        unitInput.type = 'text';
+        unitInput.className = 'form-control form-control-sm';
+        unitInput.value = item.unit || '';
+        unitInput.placeholder = '單位';
+        unitInput.addEventListener('input', function() {
+          item.unit = this.value;
+        });
+        unitCell.appendChild(unitInput);
+        
+        // 小計
+        const subtotalCell = document.createElement('td');
+        subtotalCell.className = 'item-subtotal';
+        subtotalCell.textContent = formatCurrency(item.subtotal);
+        
+        // 操作按鈕
+        const actionCell = document.createElement('td');
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+        deleteBtn.addEventListener('click', function() {
+          items.splice(index, 1);
+          renderItems();
+          calculateTotals();
+        });
+        actionCell.appendChild(deleteBtn);
+        
+        // 添加所有單元格到行
+        row.appendChild(productCell);
+        row.appendChild(priceCell);
+        row.appendChild(quantityCell);
+        row.appendChild(unitCell);
+        row.appendChild(subtotalCell);
+        row.appendChild(actionCell);
+        
+        tbody.appendChild(row);
+      });
+    }
+    
+    calculateTotals();
+  }
+  
+  // 更新項目小計
+  function updateItemSubtotal(index) {
+    const subtotalCells = document.querySelectorAll('.item-subtotal');
+    if (subtotalCells[index]) {
+      subtotalCells[index].textContent = formatCurrency(items[index].subtotal);
+    }
+  }
+  
+  // 計算總計
+  function calculateTotals() {
+    // 計算小計
+    subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    
+    // 計算折扣
+    const discountType = document.getElementById('discountType').value;
+    const discountValue = parseFloat(document.getElementById('discountValue').value) || 0;
+    
+    if (discountType === 'percentage') {
+      discount = subtotal * (discountValue / 100);
+    } else if (discountType === 'fixed') {
+      discount = discountValue;
+    } else {
+      discount = 0;
+    }
+    
+    // 確保折扣不超過小計
+    discount = Math.min(discount, subtotal);
+    
+    // 計算稅金
+    const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+    const taxableAmount = subtotal - discount;
+    tax = taxableAmount * (taxRate / 100);
+    
+    // 計算總計
+    total = taxableAmount + tax;
+    
+    // 更新顯示
+    document.querySelector('.subtotal-display').textContent = formatCurrency(subtotal);
+    
+    const discountRow = document.querySelector('.discount-row');
+    if (discount > 0) {
+      discountRow.style.display = '';
+      document.querySelector('.discount-display').textContent = '-' + formatCurrency(discount);
+    } else {
+      discountRow.style.display = 'none';
+    }
+    
+    document.querySelector('.tax-display').textContent = formatCurrency(tax);
+    document.querySelector('.total-display').textContent = formatCurrency(total);
+  }
+  
+  // 格式化貨幣
+  function formatCurrency(value) {
+    return '$' + value.toFixed(2);
+  }
+</script>
+
+<%- include('../../partials/footer') %> 

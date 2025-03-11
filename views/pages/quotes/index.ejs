@@ -1,0 +1,199 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>報價單管理</h1>
+    <div>
+      <a href="/quotes/create" class="btn btn-primary">
+        <i class="bi bi-plus"></i> 新增報價單
+      </a>
+      <a href="/quotes/import" class="btn btn-success">
+        <i class="bi bi-file-import"></i> 批量匯入
+      </a>
+    </div>
+  </div>
+
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-white">
+      <ul class="nav nav-tabs card-header-tabs">
+        <li class="nav-item">
+          <a class="nav-link active" href="/quotes">所有報價單</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quotes/search?status=draft">草稿</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quotes/search?status=sent">已發送</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quotes/search?status=accepted">已接受</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quotes/search?status=rejected">已拒絕</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/quotes/search?status=expired">已過期</a>
+        </li>
+      </ul>
+    </div>
+    <div class="card-body p-0">
+      <div class="row m-3">
+        <div class="col-md-8">
+          <form action="/quotes/search" method="GET" class="d-flex">
+            <input type="text" name="q" class="form-control me-2" placeholder="搜尋報價單...">
+            <button class="btn btn-outline-secondary" type="submit">
+              <i class="bi bi-search"></i> 搜尋
+            </button>
+          </form>
+        </div>
+        <div class="col-md-4">
+          <div class="d-flex justify-content-md-end mt-3 mt-md-0">
+            <div class="btn-group">
+              <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-funnel"></i> 篩選
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">按日期篩選</h6></li>
+                <li>
+                  <form action="/quotes/search" method="GET" class="px-3 py-2">
+                    <div class="mb-2">
+                      <label for="fromDate" class="form-label">開始日期</label>
+                      <input type="date" class="form-control form-control-sm" id="fromDate" name="fromDate">
+                    </div>
+                    <div class="mb-2">
+                      <label for="toDate" class="form-label">結束日期</label>
+                      <input type="date" class="form-control form-control-sm" id="toDate" name="toDate">
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary w-100">應用篩選</button>
+                  </form>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <% if (quotes && quotes.length > 0) { %>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>報價單編號</th>
+                <th>客戶</th>
+                <th>報價日期</th>
+                <th>有效期限</th>
+                <th>總金額</th>
+                <th>狀態</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% quotes.forEach(quote => { %>
+                <tr>
+                  <td><a href="/quotes/<%= quote.id %>">#<%= quote.id %></a></td>
+                  <td><%= quote.customerName %></td>
+                  <td><%= new Date(quote.quoteDate).toLocaleDateString() %></td>
+                  <td><%= new Date(quote.validUntil).toLocaleDateString() %></td>
+                  <td><%= quote.total.toFixed(2) %></td>
+                  <td>
+                    <span class="badge status-<%= quote.status %>">
+                      <% if (quote.status === 'draft') { %>草稿
+                      <% } else if (quote.status === 'sent') { %>已發送
+                      <% } else if (quote.status === 'accepted') { %>已接受
+                      <% } else if (quote.status === 'rejected') { %>已拒絕
+                      <% } else if (quote.status === 'expired') { %>已過期
+                      <% } %>
+                    </span>
+                  </td>
+                  <td>
+                    <div class="btn-group">
+                      <a href="/quotes/<%= quote.id %>" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                      <% if (quote.status === 'draft') { %>
+                        <a href="/quotes/edit/<%= quote.id %>" class="btn btn-sm btn-outline-primary">
+                          <i class="bi bi-pencil"></i>
+                        </a>
+                      <% } %>
+                      <a href="/quotes/copy/<%= quote.id %>" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-copy"></i>
+                      </a>
+                      <button type="button" class="btn btn-sm btn-outline-danger delete-btn" 
+                              data-id="<%= quote.id %>" 
+                              data-bs-toggle="modal" 
+                              data-bs-target="#deleteModal">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="alert alert-info m-3">
+          <i class="bi bi-info-circle"></i> 尚未創建任何報價單
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除確認模態框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除此報價單嗎？此操作無法撤銷。
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.delete-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      document.getElementById('deleteForm').action = `/quotes/delete/${id}`;
+    });
+  });
+  
+  // 處理刪除表單提交
+  document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/quotes';
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
+
+<%- include('../../partials/footer') %> 

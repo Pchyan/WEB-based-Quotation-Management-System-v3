@@ -1,0 +1,5 @@
+quoteNumber,customerId,title,description,issueDate,validUntil,status,discountType,discountValue,taxRate,notes,terms,productId,itemDescription,quantity,unitPrice,itemDiscount,amount
+QT-2023001,1,網站開發專案,企業形象網站開發,2023-06-01,2023-07-01,draft,percentage,5,5,客戶要求6月底前完成,付款條件：50%預付款，50%驗收後,1,網站設計與開發,1,50000,0,50000
+QT-2023001,1,,,,,,,,,,,2,網站維護一年,1,10000,0,10000
+QT-2023002,2,行銷方案,數位行銷整合方案,2023-06-15,2023-07-15,sent,fixed,2000,5,包含社群媒體行銷,付款條件：月結30天,3,社群媒體行銷,3,5000,0,15000
+QT-2023002,2,,,,,,,,,,,4,搜尋引擎優化,1,20000,0,20000 

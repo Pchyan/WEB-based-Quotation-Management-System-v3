@@ -1,0 +1,140 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h3 class="card-title mb-0">批量匯入產品</h3>
+      <div>
+        <a href="/products" class="btn btn-outline-secondary">
+          <i class="fas fa-arrow-left"></i> 返回產品列表
+        </a>
+      </div>
+    </div>
+    <div class="card-body">
+      <% if (locals.error) { %>
+        <div class="alert alert-danger">
+          <%= error %>
+        </div>
+      <% } %>
+      <% if (locals.success) { %>
+        <div class="alert alert-success">
+          <%= success %>
+        </div>
+      <% } %>
+      
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title">匯入說明</h5>
+              <hr>
+              <p>請依照以下格式準備 CSV 或 Excel 檔案：</p>
+              <ul>
+                <li><strong>必填欄位</strong>：產品名稱(name)、價格(price)</li>
+                <li><strong>選填欄位</strong>：產品描述(description)、產品編號(sku)、單位(unit)、分類ID(category_id)</li>
+              </ul>
+              <p>支援的欄位名稱格式：</p>
+              <ul>
+                <li>英文欄位：name, description, sku, price, unit, category_id</li>
+                <li>首字母大寫：Name, Description, SKU, Price, Unit, CategoryId</li>
+                <li>中文欄位：產品名稱, 產品描述, 產品編號, 價格, 單位, 分類ID</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h5 class="card-title">範例檔案</h5>
+              <hr>
+              <p>您可以下載以下範例檔案作為參考：</p>
+              <ul>
+                <li>
+                  <a href="/templates/product_import_template.csv" download>
+                    <i class="fas fa-file-csv"></i> CSV 範例檔案
+                  </a>
+                </li>
+                <li>
+                  <a href="/templates/product_import_template.xlsx" download>
+                    <i class="fas fa-file-excel"></i> Excel 範例檔案
+                  </a>
+                </li>
+              </ul>
+              <p>現有產品分類：</p>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                  <thead>
+                    <tr>
+                      <th>分類ID</th>
+                      <th>分類名稱</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- 實際項目中應該從資料庫取得分類列表 -->
+                    <tr>
+                      <td>1</td>
+                      <td>商品</td>
+                    </tr>
+                    <tr>
+                      <td>2</td>
+                      <td>服務</td>
+                    </tr>
+                    <tr>
+                      <td>3</td>
+                      <td>耗材</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <form action="/products/import" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label for="file" class="form-label">選擇檔案</label>
+          <input type="file" class="form-control" id="file" name="file" accept=".csv, .xls, .xlsx" required>
+          <div class="form-text">請選擇 CSV 或 Excel 檔案 (.csv, .xls, .xlsx)</div>
+        </div>
+        
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-upload"></i> 上傳並匯入
+          </button>
+        </div>
+      </form>
+      
+      <% if (locals.results && locals.results.failedItems && locals.results.failedItems.length > 0) { %>
+        <div class="mt-4">
+          <h5>匯入失敗項目 (<%= locals.results.failedItems.length %>)</h5>
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>產品名稱</th>
+                  <th>價格</th>
+                  <th>產品編號</th>
+                  <th>失敗原因</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% locals.results.failedItems.forEach(item => { %>
+                  <tr>
+                    <td><%= item.data.name || '(空)' %></td>
+                    <td><%= item.data.price || '(空)' %></td>
+                    <td><%= item.data.sku || '(空)' %></td>
+                    <td><%= item.reason %></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/footer') %> 
