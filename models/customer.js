@@ -238,6 +238,8 @@ class Customer {
       let failedCount = 0;
       const failedItems = [];
       
+      console.log(`開始批量匯入 ${customers.length} 筆客戶資料`);
+      
       db.serialize(() => {
         db.run('BEGIN TRANSACTION');
         
@@ -246,7 +248,7 @@ class Customer {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
-        customers.forEach((customer) => {
+        customers.forEach((customer, index) => {
           try {
             if (!customer.name) {
               failedCount++;
@@ -254,6 +256,7 @@ class Customer {
                 data: customer,
                 reason: '客戶名稱不能為空'
               });
+              console.warn(`第 ${index + 1} 筆資料匯入失敗: 客戶名稱不能為空`);
               return;
             }
             
@@ -275,8 +278,12 @@ class Customer {
                     data: customer,
                     reason: err.message
                   });
+                  console.error(`第 ${index + 1} 筆資料匯入失敗: ${err.message}`);
                 } else {
                   successCount++;
+                  if (successCount % 10 === 0) {
+                    console.log(`已成功匯入 ${successCount} 筆資料`);
+                  }
                 }
               }
             );
@@ -286,6 +293,7 @@ class Customer {
               data: customer,
               reason: err.message
             });
+            console.error(`處理第 ${index + 1} 筆資料時發生錯誤: ${err.message}`);
           }
         });
         
@@ -293,10 +301,12 @@ class Customer {
         
         db.run('COMMIT', function(err) {
           if (err) {
+            console.error(`提交事務時發生錯誤: ${err.message}`);
             db.run('ROLLBACK');
             return reject(err);
           }
           
+          console.log(`批量匯入完成: 成功 ${successCount} 筆，失敗 ${failedCount} 筆`);
           resolve({
             success: successCount,
             failed: failedCount,

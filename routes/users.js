@@ -25,215 +25,228 @@ router.get('/', isAuthenticated, isAdmin, async (req, res) => {
 // 新增使用者頁面 (僅管理員可訪問)
 router.get('/create', isAuthenticated, isAdmin, (req, res) => {
   res.render('pages/users/create', {
-    title: '新增使用者',
-    error: null,
-    user: {}
+    title: '新增使用者'
   });
 });
 
-// 處理新增使用者請求 (僅管理員可訪問)
-router.post('/create', [
-  body('username').trim().isLength({ min: 3 }).withMessage('使用者名稱至少需要3個字元'),
+// 處理使用者創建
+router.post('/create', isAuthenticated, isAdmin, [
+  body('username').trim().isLength({ min: 3 }).withMessage('使用者名稱至少需要 3 個字元'),
   body('email').isEmail().withMessage('請輸入有效的電子郵件地址'),
-  body('password').isLength({ min: 6 }).withMessage('密碼至少需要6個字元'),
-  body('fullName').trim().notEmpty().withMessage('請輸入全名'),
-  body('role').isIn(['admin', 'user']).withMessage('角色無效')
-], isAuthenticated, isAdmin, async (req, res) => {
-  // 驗證表單
+  body('fullName').trim().notEmpty().withMessage('請輸入姓名'),
+  body('role').isIn(['user', 'admin']).withMessage('角色無效'),
+  body('password').isLength({ min: 6 }).withMessage('密碼至少需要 6 個字元'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.password) {
+      throw new Error('確認密碼與密碼不符');
+    }
+    return true;
+  })
+], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.render('pages/users/create', {
       title: '新增使用者',
       error: errors.array()[0].msg,
-      user: {
-        username: req.body.username,
-        email: req.body.email,
-        fullName: req.body.fullName,
-        role: req.body.role
-      }
+      userData: req.body
     });
   }
 
   try {
+    const { username, email, fullName, role, password } = req.body;
+    
     // 檢查使用者名稱是否已存在
-    const existingUsername = await User.findByUsername(req.body.username);
+    const existingUsername = await User.findByUsername(username);
     if (existingUsername) {
       return res.render('pages/users/create', {
         title: '新增使用者',
         error: '使用者名稱已被使用',
-        user: {
-          username: req.body.username,
-          email: req.body.email,
-          fullName: req.body.fullName,
-          role: req.body.role
-        }
+        userData: req.body
       });
     }
-
+    
     // 檢查電子郵件是否已存在
-    const existingEmail = await User.findByEmail(req.body.email);
+    const existingEmail = await User.findByEmail(email);
     if (existingEmail) {
       return res.render('pages/users/create', {
         title: '新增使用者',
         error: '電子郵件已被使用',
-        user: {
-          username: req.body.username,
-          email: req.body.email,
-          fullName: req.body.fullName,
-          role: req.body.role
-        }
+        userData: req.body
       });
     }
-
+    
     // 創建新使用者
     await User.create({
-      username: req.body.username,
-      email: req.body.email,
-      password: req.body.password,
-      fullName: req.body.fullName,
-      role: req.body.role
+      username,
+      email,
+      fullName,
+      role,
+      password
     });
-
+    
+    req.flash('success', '使用者已成功創建');
     res.redirect('/users');
   } catch (err) {
     console.error('創建使用者錯誤:', err);
     res.render('pages/users/create', {
       title: '新增使用者',
       error: '創建使用者時發生錯誤',
-      user: {
-        username: req.body.username,
-        email: req.body.email,
-        fullName: req.body.fullName,
-        role: req.body.role
-      }
+      userData: req.body
     });
   }
 });
 
-// 編輯使用者頁面 (僅管理員可訪問)
-router.get('/edit/:id', isAuthenticated, isAdmin, async (req, res) => {
+// 使用者編輯頁面
+router.get('/:id/edit', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
+    
     if (!user) {
-      return res.status(404).render('pages/error', {
-        title: '找不到使用者',
-        message: '找不到指定的使用者'
-      });
+      req.flash('error', '找不到使用者');
+      return res.redirect('/users');
     }
-
+    
     res.render('pages/users/edit', {
       title: '編輯使用者',
-      error: null,
       user
     });
   } catch (err) {
     console.error('取得使用者錯誤:', err);
-    res.status(500).render('pages/error', {
-      title: '伺服器錯誤',
-      message: '取得使用者資料時發生錯誤'
-    });
+    req.flash('error', '取得使用者資料時發生錯誤');
+    res.redirect('/users');
   }
 });
 
-// 處理編輯使用者請求 (僅管理員可訪問)
-router.post('/edit/:id', [
+// 處理使用者編輯
+router.post('/:id/edit', isAuthenticated, isAdmin, [
   body('email').isEmail().withMessage('請輸入有效的電子郵件地址'),
-  body('fullName').trim().notEmpty().withMessage('請輸入全名'),
-  body('role').isIn(['admin', 'user']).withMessage('角色無效')
-], isAuthenticated, isAdmin, async (req, res) => {
-  // 驗證表單
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.render('pages/users/edit', {
-      title: '編輯使用者',
-      error: errors.array()[0].msg,
-      user: {
-        id: req.params.id,
-        email: req.body.email,
-        fullName: req.body.fullName,
-        role: req.body.role
-      }
-    });
-  }
-
+  body('fullName').trim().notEmpty().withMessage('請輸入姓名'),
+  body('role').isIn(['user', 'admin']).withMessage('角色無效'),
+  body('password').optional({ checkFalsy: true }).isLength({ min: 6 }).withMessage('密碼至少需要 6 個字元'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (req.body.password && value !== req.body.password) {
+      throw new Error('確認密碼與密碼不符');
+    }
+    return true;
+  })
+], async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    // 檢查使用者是否存在
-    const existingUser = await User.findById(req.params.id);
-    if (!existingUser) {
-      return res.status(404).render('pages/error', {
-        title: '找不到使用者',
-        message: '找不到指定的使用者'
+    const user = await User.findById(id);
+    
+    if (!user) {
+      req.flash('error', '找不到使用者');
+      return res.redirect('/users');
+    }
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.render('pages/users/edit', {
+        title: '編輯使用者',
+        user,
+        error: errors.array()[0].msg
       });
     }
-
-    // 檢查電子郵件是否已被其他使用者使用
-    if (req.body.email !== existingUser.email) {
-      const existingEmail = await User.findByEmail(req.body.email);
-      if (existingEmail && existingEmail.id !== parseInt(req.params.id)) {
-        return res.render('pages/users/edit', {
-          title: '編輯使用者',
-          error: '電子郵件已被使用',
-          user: {
-            id: req.params.id,
-            email: req.body.email,
-            fullName: req.body.fullName,
-            role: req.body.role
-          }
-        });
-      }
+    
+    const { email, fullName, role, password } = req.body;
+    
+    // 檢查電子郵件是否與其他使用者重複
+    const existingEmail = await User.findByEmail(email);
+    if (existingEmail && existingEmail.id !== parseInt(id)) {
+      return res.render('pages/users/edit', {
+        title: '編輯使用者',
+        user,
+        error: '電子郵件已被使用'
+      });
     }
-
+    
     // 更新使用者資料
-    const userData = {
-      email: req.body.email,
-      fullName: req.body.fullName,
-      role: req.body.role
+    const updateData = {
+      email,
+      fullName,
+      role
     };
-
-    // 如果提供了新密碼，則更新密碼
-    if (req.body.password && req.body.password.trim() !== '') {
-      userData.password = req.body.password;
+    
+    // 如果有提供密碼，則更新密碼
+    if (password) {
+      updateData.password = password;
     }
-
-    await User.update(req.params.id, userData);
-
-    res.redirect('/users');
+    
+    // 關鍵更改：使用本地變數獲取更新結果，避免其影響 session
+    const updatedUserData = await User.update(id, updateData);
+    
+    // 更新 session 資料（「只有」在管理員編輯自己的資料時才執行）
+    // 使用嚴格相等和明確轉換的數值比較
+    const currentUserId = parseInt(req.session.user.id, 10);
+    const editedUserId = parseInt(id, 10);
+    
+    if (currentUserId === editedUserId) {
+      console.log('更新了自己的資料，需要更新 session');
+      
+      // 重新讀取使用者資料以確保 session 中的資料完整且最新
+      const refreshedUser = await User.findById(editedUserId);
+      
+      // 保留原始身份驗證狀態
+      const isAuthenticated = req.session.isAuthenticated;
+      
+      // 更新 session 中的使用者資訊
+      req.session.user = {
+        id: refreshedUser.id,
+        username: refreshedUser.username,
+        email: refreshedUser.email,
+        fullName: refreshedUser.fullName,
+        role: refreshedUser.role,
+        preferences: refreshedUser.preferences
+      };
+      
+      // 確保身份驗證狀態不變
+      req.session.isAuthenticated = isAuthenticated;
+    } else {
+      console.log('更新了其他使用者的資料，不更新 session');
+    }
+    
+    req.flash('success', '使用者資料已成功更新');
+    res.redirect(`/users/${id}/edit`);
   } catch (err) {
     console.error('更新使用者錯誤:', err);
     res.render('pages/users/edit', {
       title: '編輯使用者',
-      error: '更新使用者時發生錯誤',
       user: {
         id: req.params.id,
-        email: req.body.email,
-        fullName: req.body.fullName,
-        role: req.body.role
-      }
+        ...req.body
+      },
+      error: '更新使用者資料時發生錯誤'
     });
   }
 });
 
-// 刪除使用者 (僅管理員可訪問)
-router.post('/delete/:id', isAuthenticated, isAdmin, async (req, res) => {
+// 處理使用者刪除
+router.post('/:id/delete', isAuthenticated, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    // 檢查使用者是否存在
-    const user = await User.findById(req.params.id);
+    // 不能刪除自己
+    if (parseInt(id) === req.session.user.id) {
+      req.flash('error', '不能刪除自己的帳號');
+      return res.redirect('/users');
+    }
+    
+    const user = await User.findById(id);
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: '找不到使用者' });
+      req.flash('error', '找不到使用者');
+      return res.redirect('/users');
     }
-
-    // 不允許刪除自己
-    if (parseInt(req.params.id) === req.session.user.id) {
-      return res.status(400).json({ success: false, message: '不能刪除自己的帳號' });
-    }
-
-    // 刪除使用者
-    await User.delete(req.params.id);
-
-    res.json({ success: true });
+    
+    await User.delete(id);
+    
+    req.flash('success', '使用者已成功刪除');
+    res.redirect('/users');
   } catch (err) {
     console.error('刪除使用者錯誤:', err);
-    res.status(500).json({ success: false, message: err.message || '刪除使用者時發生錯誤' });
+    req.flash('error', '刪除使用者時發生錯誤');
+    res.redirect('/users');
   }
 });
 
@@ -373,20 +386,29 @@ router.post('/profile', [
     // 更新使用者
     const updatedUser = await User.update(req.session.user.id, userData);
 
-    // 更新 session
+    // 更新 session，保留身份驗證狀態
+    const isAuthenticated = req.session.isAuthenticated;
+    
+    // 重新讀取使用者資料以確保 session 中的資料完整且最新
+    const refreshedUser = await User.findById(req.session.user.id);
+    
     req.session.user = {
-      id: updatedUser.id,
-      username: updatedUser.username,
-      email: updatedUser.email,
-      fullName: updatedUser.fullName,
-      role: updatedUser.role
+      id: refreshedUser.id,
+      username: refreshedUser.username,
+      email: refreshedUser.email,
+      fullName: refreshedUser.fullName,
+      role: refreshedUser.role,
+      preferences: refreshedUser.preferences
     };
+    
+    // 確保身份驗證狀態不變
+    req.session.isAuthenticated = isAuthenticated;
 
     res.render('pages/users/profile', {
       title: '個人資料',
       error: null,
       success: '個人資料已更新',
-      user: updatedUser
+      user: refreshedUser
     });
   } catch (err) {
     console.error('更新個人資料錯誤:', err);
@@ -424,7 +446,10 @@ router.post('/preferences', isAuthenticated, async (req, res) => {
     // 更新使用者偏好設定
     const updatedUser = await User.updatePreferences(userId, preferences);
     
-    // 更新 session 中的使用者資訊
+    // 保留原始身份驗證狀態
+    const isAuthenticated = req.session.isAuthenticated;
+    
+    // 更新 session 中的使用者資訊，確保保留完整的使用者資料
     req.session.user = {
       id: updatedUser.id,
       username: updatedUser.username,
@@ -434,8 +459,21 @@ router.post('/preferences', isAuthenticated, async (req, res) => {
       preferences: updatedUser.preferences
     };
     
-    req.flash('success', '偏好設定已成功更新');
-    res.redirect('/users/profile');
+    // 確保身份驗證狀態不變
+    req.session.isAuthenticated = isAuthenticated;
+    
+    // 儲存 session 變更，確保資料被正確寫入
+    req.session.save(err => {
+      if (err) {
+        console.error('儲存 session 時發生錯誤:', err);
+      }
+      
+      // 增加一個成功提示
+      req.flash('success', '偏好設定已更新');
+      
+      // 重定向回個人資料頁面
+      return res.redirect('/users/profile');
+    });
   } catch (error) {
     console.error('更新偏好設定時發生錯誤:', error);
     req.flash('error', '更新偏好設定時發生錯誤');

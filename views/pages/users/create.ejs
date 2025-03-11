@@ -1,0 +1,74 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <h3 class="card-title mb-0">新增使用者</h3>
+        </div>
+        <div class="card-body">
+          <% if (locals.error) { %>
+            <div class="alert alert-danger">
+              <%= error %>
+            </div>
+          <% } %>
+          
+          <form action="/users/create" method="POST">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="username" class="form-label">使用者名稱</label>
+                <input type="text" class="form-control" id="username" name="username" value="<%= locals.userData ? userData.username : '' %>" required>
+                <div class="form-text">使用者名稱用於登入系統，建立後無法更改</div>
+              </div>
+              <div class="col-md-6">
+                <label for="email" class="form-label">電子郵件</label>
+                <input type="email" class="form-control" id="email" name="email" value="<%= locals.userData ? userData.email : '' %>" required>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="fullName" class="form-label">姓名</label>
+              <input type="text" class="form-control" id="fullName" name="fullName" value="<%= locals.userData ? userData.fullName : '' %>" required>
+            </div>
+            
+            <div class="mb-3">
+              <label for="role" class="form-label">角色</label>
+              <select class="form-select" id="role" name="role" required>
+                <option value="user" <%= !locals.userData || userData.role === 'user' ? 'selected' : '' %>>一般使用者</option>
+                <option value="admin" <%= locals.userData && userData.role === 'admin' ? 'selected' : '' %>>管理員</option>
+              </select>
+            </div>
+            
+            <hr class="my-4">
+            <h5>設定密碼</h5>
+            
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="password" class="form-label">密碼</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+                <div class="form-text">密碼至少需要 6 個字元</div>
+              </div>
+              <div class="col-md-6">
+                <label for="confirmPassword" class="form-label">確認密碼</label>
+                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i> 建立使用者
+              </button>
+              <a href="/users" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 返回使用者列表
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/footer') %> 

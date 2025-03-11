@@ -4,6 +4,7 @@ const path = require('path');
 const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const dotenv = require('dotenv');
+const flash = require('express-flash');
 
 // 載入環境變數
 dotenv.config();
@@ -45,6 +46,9 @@ app.use(session({
     maxAge: 1000 * 60 * 60 * 24 // 24小時
   }
 }));
+
+// 配置 Flash 訊息
+app.use(flash());
 
 // 全域中間件
 app.use((req, res, next) => {
