@@ -5,6 +5,7 @@ const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const dotenv = require('dotenv');
 const flash = require('express-flash');
+const fs = require('fs');
 
 // 載入環境變數
 dotenv.config();
@@ -33,6 +34,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 確保上傳目錄存在
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log(`建立上傳目錄: ${uploadsDir}`);
+  } catch (err) {
+    console.error(`無法建立上傳目錄: ${err.message}`);
+  }
+}
+
+// 提供上傳目錄的存取
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // 設定 Session
 app.use(session({
   store: new SQLiteStore({
@@ -50,11 +65,21 @@ app.use(session({
 // 配置 Flash 訊息
 app.use(flash());
 
-// 全域中間件
+// 設置全局變量和 locals
 app.use((req, res, next) => {
+  // 為所有頁面設置 user 資訊（會話用戶）
   res.locals.user = req.session.user || null;
+  
+  // 添加一個明確的 currentUser 變量，確保表示的是當前登入用戶
+  res.locals.currentUser = req.session.user || null;
+  
+  // 重新添加其他全局變量
   res.locals.isAuthenticated = req.session.isAuthenticated || false;
   res.locals.appName = process.env.APP_NAME || '報價管理系統';
+  
+  // 記錄請求資訊，便於調試
+  const username = req.session.user ? req.session.user.username : '未登入用戶';
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} - 用戶: ${username}`);
   next();
 });
 

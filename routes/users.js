@@ -99,16 +99,22 @@ router.post('/create', isAuthenticated, isAdmin, [
 // 使用者編輯頁面
 router.get('/:id/edit', isAuthenticated, isAdmin, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const editUser = await User.findById(req.params.id);
     
-    if (!user) {
+    if (!editUser) {
       req.flash('error', '找不到使用者');
       return res.redirect('/users');
     }
     
+    // 確保有當前登入用戶資訊
+    const currentUser = req.session.user;
+    console.log(`Admin ${currentUser.username} 正在編輯用戶 ${editUser.username}`);
+    
     res.render('pages/users/edit', {
       title: '編輯使用者',
-      user
+      user: editUser,  // 保持與原模板相容，但在模板中會重命名
+      editUser,        // 提供明確命名的變量
+      currentUser      // 提供當前登入用戶信息給模板
     });
   } catch (err) {
     console.error('取得使用者錯誤:', err);
@@ -133,30 +139,44 @@ router.post('/:id/edit', isAuthenticated, isAdmin, [
   const { id } = req.params;
   
   try {
+    console.log(`開始處理用戶 ID: ${id} 的編輯請求`);
     const user = await User.findById(id);
     
     if (!user) {
+      console.warn(`找不到 ID 為 ${id} 的用戶`);
       req.flash('error', '找不到使用者');
       return res.redirect('/users');
     }
     
+    console.log(`找到用戶: ${user.username} (ID: ${user.id})`);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      // 確保當前登入用戶訊息可用
+      const currentUser = req.session.user;
+      console.warn(`表單驗證錯誤: ${errors.array()[0].msg}`);
       return res.render('pages/users/edit', {
         title: '編輯使用者',
         user,
+        editUser: user,
+        currentUser,
         error: errors.array()[0].msg
       });
     }
     
     const { email, fullName, role, password } = req.body;
+    console.log(`請求更新用戶資料 - Email: ${email}, 姓名: ${fullName}, 角色: ${role}, 密碼更新: ${password ? '是' : '否'}`);
     
     // 檢查電子郵件是否與其他使用者重複
     const existingEmail = await User.findByEmail(email);
     if (existingEmail && existingEmail.id !== parseInt(id)) {
+      // 確保當前登入用戶訊息可用
+      const currentUser = req.session.user;
+      console.warn(`電子郵件 ${email} 已被用戶 ${existingEmail.username} (ID: ${existingEmail.id}) 使用`);
       return res.render('pages/users/edit', {
         title: '編輯使用者',
         user,
+        editUser: user,
+        currentUser,
         error: '電子郵件已被使用'
       });
     }
@@ -173,50 +193,108 @@ router.post('/:id/edit', isAuthenticated, isAdmin, [
       updateData.password = password;
     }
     
-    // 關鍵更改：使用本地變數獲取更新結果，避免其影響 session
-    const updatedUserData = await User.update(id, updateData);
+    console.log(`準備更新用戶 ${user.username} (ID: ${user.id}) 的資料`);
+    console.log('更新資料:', JSON.stringify({
+      email: updateData.email,
+      fullName: updateData.fullName,
+      role: updateData.role,
+      password: updateData.password ? '已提供' : '未提供'
+    }));
     
-    // 更新 session 資料（「只有」在管理員編輯自己的資料時才執行）
-    // 使用嚴格相等和明確轉換的數值比較
-    const currentUserId = parseInt(req.session.user.id, 10);
-    const editedUserId = parseInt(id, 10);
-    
-    if (currentUserId === editedUserId) {
-      console.log('更新了自己的資料，需要更新 session');
+    try {
+      // 關鍵更改：使用本地變數獲取更新結果，避免其影響 session
+      const updatedUser = await User.update(id, updateData);
+      console.log(`用戶 ${user.username} (ID: ${user.id}) 資料更新成功`);
       
-      // 重新讀取使用者資料以確保 session 中的資料完整且最新
-      const refreshedUser = await User.findById(editedUserId);
+      // 更新 session 資料（「只有」在管理員編輯自己的資料時才執行）
+      const currentUserId = parseInt(req.session.user.id, 10);
+      const editedUserId = parseInt(id, 10);
       
-      // 保留原始身份驗證狀態
-      const isAuthenticated = req.session.isAuthenticated;
+      if (currentUserId === editedUserId) {
+        console.log('更新了自己的資料，需要更新 session');
+        
+        try {
+          // 確保我們有完整的用戶資料
+          if (!updatedUser || !updatedUser.id) {
+            console.warn('更新成功但獲取的用戶資料不完整，嘗試重新獲取');
+            const refreshedUser = await User.findById(editedUserId);
+            if (!refreshedUser) {
+              console.error('無法獲取更新後的用戶資料，保持原始 session');
+            } else {
+              // 更新 session 中的使用者資訊，但保留原始身份驗證狀態
+              req.session.user = {
+                id: refreshedUser.id,
+                username: refreshedUser.username,
+                email: refreshedUser.email,
+                fullName: refreshedUser.fullName,
+                role: refreshedUser.role,
+                preferences: refreshedUser.preferences
+              };
+              console.log(`已更新 session 中的用戶資料`);
+            }
+          } else {
+            // 直接使用 updatedUser
+            req.session.user = {
+              id: updatedUser.id,
+              username: updatedUser.username,
+              email: updatedUser.email,
+              fullName: updatedUser.fullName,
+              role: updatedUser.role,
+              preferences: updatedUser.preferences
+            };
+            console.log(`已使用返回的數據更新 session 中的用戶資料`);
+          }
+        } catch (sessionErr) {
+          console.error(`更新 session 時發生錯誤:`, sessionErr);
+          // 繼續處理，不要中斷流程
+        }
+      } else {
+        console.log('更新了其他使用者的資料，不更新 session');
+      }
       
-      // 更新 session 中的使用者資訊
-      req.session.user = {
-        id: refreshedUser.id,
-        username: refreshedUser.username,
-        email: refreshedUser.email,
-        fullName: refreshedUser.fullName,
-        role: refreshedUser.role,
-        preferences: refreshedUser.preferences
-      };
+      req.flash('success', '使用者資料已成功更新');
+      res.redirect('/users');
+    } catch (updateErr) {
+      console.error(`更新用戶時發生錯誤:`, updateErr);
       
-      // 確保身份驗證狀態不變
-      req.session.isAuthenticated = isAuthenticated;
-    } else {
-      console.log('更新了其他使用者的資料，不更新 session');
+      // 清理錯誤消息以顯示給用戶
+      const errorMessage = updateErr.message || '更新用戶數據時發生未知錯誤';
+      
+      // 確保當前登入用戶訊息可用
+      const currentUser = req.session.user || { id: 0, username: 'unknown' };
+      
+      res.render('pages/users/edit', {
+        title: '編輯使用者',
+        user,
+        editUser: user,
+        currentUser,
+        error: `更新使用者資料時發生錯誤: ${errorMessage}`
+      });
     }
-    
-    req.flash('success', '使用者資料已成功更新');
-    res.redirect(`/users/${id}/edit`);
   } catch (err) {
-    console.error('更新使用者錯誤:', err);
+    console.error('查詢用戶或驗證時發生錯誤:', err);
+    
+    // 打印詳細的錯誤堆疊
+    console.error(err.stack);
+    
+    // 確保當前登入用戶訊息可用
+    const currentUser = req.session.user || { id: 0, username: 'unknown' };
+    
+    // 嘗試返回用戶編輯頁面，即使我們無法獲取原始用戶資料
+    const editUserData = {
+      id: req.params.id,
+      username: req.body.username || '未知用戶',
+      email: req.body.email || '',
+      fullName: req.body.fullName || '',
+      role: req.body.role || 'user'
+    };
+    
     res.render('pages/users/edit', {
       title: '編輯使用者',
-      user: {
-        id: req.params.id,
-        ...req.body
-      },
-      error: '更新使用者資料時發生錯誤'
+      user: editUserData,
+      editUser: editUserData,
+      currentUser,
+      error: '無法處理您的請求: ' + (err.message || '未知錯誤')
     });
   }
 });

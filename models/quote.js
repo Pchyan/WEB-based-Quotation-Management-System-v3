@@ -801,162 +801,189 @@ class Quote {
       let failedCount = 0;
       const failedItems = [];
       
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
+      // 收集所有客戶ID，用於驗證
+      db.all('SELECT id FROM customers', [], (err, rows) => {
+        if (err) {
+          console.error('獲取客戶ID列表時出錯:', err);
+          return reject(err);
+        }
         
-        quotes.forEach((quote) => {
-          try {
-            if (!quote.quoteNumber || !quote.customerId) {
+        // 創建客戶ID集合，用於快速查找
+        const validCustomerIds = new Set(rows.map(row => row.id));
+        
+        console.log(`系統中有 ${validCustomerIds.size} 個有效客戶ID`);
+        
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+          
+          quotes.forEach((quote) => {
+            try {
+              if (!quote.quoteNumber || !quote.customerId) {
+                failedCount++;
+                failedItems.push({
+                  data: quote,
+                  reason: '報價單號或客戶ID不能為空'
+                });
+                return;
+              }
+              
+              // 驗證客戶ID是否存在
+              if (!validCustomerIds.has(parseInt(quote.customerId, 10))) {
+                failedCount++;
+                failedItems.push({
+                  data: quote,
+                  reason: `找不到指定的客戶ID: ${quote.customerId}`
+                });
+                console.warn(`報價單 ${quote.quoteNumber} 匯入失敗: 找不到客戶ID ${quote.customerId}`);
+                return;
+              }
+              
+              // 計算小計、稅額和總計
+              let subtotal = 0;
+              if (quote.items && quote.items.length > 0) {
+                quote.items.forEach(item => {
+                  subtotal += item.amount;
+                });
+              }
+              
+              // 計算折扣
+              let discountAmount = 0;
+              if (quote.discountType === 'percentage' && quote.discountValue) {
+                discountAmount = subtotal * (quote.discountValue / 100);
+              } else if (quote.discountType === 'fixed' && quote.discountValue) {
+                discountAmount = quote.discountValue;
+              }
+              
+              // 計算稅額
+              const taxableAmount = subtotal - discountAmount;
+              const taxAmount = quote.taxRate ? taxableAmount * (quote.taxRate / 100) : 0;
+              
+              // 計算總計
+              const total = taxableAmount + taxAmount;
+              
+              // 插入報價單
+              db.run(
+                `INSERT INTO quotes (
+                  quote_number, customer_id, title, description, issue_date, valid_until, 
+                  status, subtotal, discount_type, discount_value, tax_rate, tax_amount, 
+                  total, notes, terms, created_by, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  quote.quoteNumber,
+                  quote.customerId,
+                  quote.title || '',
+                  quote.description || '',
+                  quote.issueDate,
+                  quote.validUntil || null,
+                  quote.status || 'draft',
+                  subtotal,
+                  quote.discountType || null,
+                  quote.discountValue || 0,
+                  quote.taxRate || 0,
+                  taxAmount,
+                  total,
+                  quote.notes || '',
+                  quote.terms || '',
+                  quote.createdBy,
+                  now,
+                  now
+                ],
+                function(err) {
+                  if (err) {
+                    failedCount++;
+                    failedItems.push({
+                      data: quote,
+                      reason: err.message
+                    });
+                    return;
+                  }
+                  
+                  const quoteId = this.lastID;
+                  
+                  // 插入報價單項目
+                  if (quote.items && quote.items.length > 0) {
+                    const itemStmt = db.prepare(`
+                      INSERT INTO quote_items (
+                        quote_id, product_id, description, quantity, unit_price, 
+                        discount, amount, sort_order, created_at, updated_at
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `);
+                    
+                    let itemsProcessed = 0;
+                    let hasItemError = false;
+                    
+                    quote.items.forEach((item, index) => {
+                      try {
+                        itemStmt.run(
+                          quoteId,
+                          item.productId || null,
+                          item.description || '',
+                          item.quantity || 0,
+                          item.unitPrice || 0,
+                          item.discount || 0,
+                          item.amount || 0,
+                          index + 1,
+                          now,
+                          now,
+                          function(err) {
+                            itemsProcessed++;
+                            
+                            if (err && !hasItemError) {
+                              hasItemError = true;
+                              failedCount++;
+                              failedItems.push({
+                                data: quote,
+                                reason: `項目匯入錯誤: ${err.message}`
+                              });
+                            }
+                            
+                            // 如果所有項目都處理完畢
+                            if (itemsProcessed === quote.items.length && !hasItemError) {
+                              successCount++;
+                            }
+                          }
+                        );
+                      } catch (err) {
+                        if (!hasItemError) {
+                          hasItemError = true;
+                          failedCount++;
+                          failedItems.push({
+                            data: quote,
+                            reason: `項目處理錯誤: ${err.message}`
+                          });
+                        }
+                      }
+                    });
+                    
+                    itemStmt.finalize();
+                  } else {
+                    successCount++;
+                  }
+                }
+              );
+            } catch (err) {
               failedCount++;
               failedItems.push({
                 data: quote,
-                reason: '報價單號或客戶ID不能為空'
+                reason: err.message
               });
-              return;
+              console.error(`處理報價單時發生錯誤: ${err.message}`);
             }
-            
-            // 計算小計、稅額和總計
-            let subtotal = 0;
-            if (quote.items && quote.items.length > 0) {
-              quote.items.forEach(item => {
-                subtotal += item.amount;
-              });
-            }
-            
-            // 計算折扣
-            let discountAmount = 0;
-            if (quote.discountType === 'percentage' && quote.discountValue) {
-              discountAmount = subtotal * (quote.discountValue / 100);
-            } else if (quote.discountType === 'fixed' && quote.discountValue) {
-              discountAmount = quote.discountValue;
-            }
-            
-            // 計算稅額
-            const taxableAmount = subtotal - discountAmount;
-            const taxAmount = quote.taxRate ? taxableAmount * (quote.taxRate / 100) : 0;
-            
-            // 計算總計
-            const total = taxableAmount + taxAmount;
-            
-            // 插入報價單
-            db.run(
-              `INSERT INTO quotes (
-                quote_number, customer_id, title, description, issue_date, valid_until, 
-                status, subtotal, discount_type, discount_value, tax_rate, tax_amount, 
-                total, notes, terms, created_by, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                quote.quoteNumber,
-                quote.customerId,
-                quote.title || '',
-                quote.description || '',
-                quote.issueDate,
-                quote.validUntil || null,
-                quote.status || 'draft',
-                subtotal,
-                quote.discountType || null,
-                quote.discountValue || 0,
-                quote.taxRate || 0,
-                taxAmount,
-                total,
-                quote.notes || '',
-                quote.terms || '',
-                quote.createdBy,
-                now,
-                now
-              ],
-              function(err) {
-                if (err) {
-                  failedCount++;
-                  failedItems.push({
-                    data: quote,
-                    reason: err.message
-                  });
-                  return;
-                }
-                
-                const quoteId = this.lastID;
-                
-                // 插入報價單項目
-                if (quote.items && quote.items.length > 0) {
-                  const itemStmt = db.prepare(`
-                    INSERT INTO quote_items (
-                      quote_id, product_id, description, quantity, unit_price, 
-                      discount, amount, sort_order, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                  `);
-                  
-                  let itemsProcessed = 0;
-                  let hasItemError = false;
-                  
-                  quote.items.forEach((item, index) => {
-                    try {
-                      itemStmt.run(
-                        quoteId,
-                        item.productId || null,
-                        item.description || '',
-                        item.quantity || 0,
-                        item.unitPrice || 0,
-                        item.discount || 0,
-                        item.amount || 0,
-                        index + 1,
-                        now,
-                        now,
-                        function(err) {
-                          itemsProcessed++;
-                          
-                          if (err && !hasItemError) {
-                            hasItemError = true;
-                            failedCount++;
-                            failedItems.push({
-                              data: quote,
-                              reason: `項目匯入錯誤: ${err.message}`
-                            });
-                          }
-                          
-                          // 如果所有項目都處理完畢
-                          if (itemsProcessed === quote.items.length && !hasItemError) {
-                            successCount++;
-                          }
-                        }
-                      );
-                    } catch (err) {
-                      if (!hasItemError) {
-                        hasItemError = true;
-                        failedCount++;
-                        failedItems.push({
-                          data: quote,
-                          reason: `項目處理錯誤: ${err.message}`
-                        });
-                      }
-                    }
-                  });
-                  
-                  itemStmt.finalize();
-                } else {
-                  successCount++;
-                }
-              }
-            );
-          } catch (err) {
-            failedCount++;
-            failedItems.push({
-              data: quote,
-              reason: err.message
-            });
-          }
-        });
-        
-        db.run('COMMIT', function(err) {
-          if (err) {
-            db.run('ROLLBACK');
-            return reject(err);
-          }
+          });
           
-          resolve({
-            success: successCount,
-            failed: failedCount,
-            failedItems: failedItems
+          db.run('COMMIT', function(err) {
+            if (err) {
+              console.error(`提交事務時發生錯誤: ${err.message}`);
+              db.run('ROLLBACK');
+              return reject(err);
+            }
+            
+            console.log(`批量匯入完成: 成功 ${successCount} 筆，失敗 ${failedCount} 筆`);
+            resolve({
+              success: successCount,
+              failed: failedCount,
+              failedItems: failedItems
+            });
           });
         });
       });

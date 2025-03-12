@@ -13,28 +13,59 @@ const xlsx = require('xlsx');
 // 配置文件上傳
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-    const uploadsDir = path.join(__dirname, '../uploads');
+    // 使用絕對路徑而不是相對路徑，以避免路徑問題
+    const uploadsDir = path.resolve(__dirname, '../uploads');
+    console.log('報價單上傳目錄路徑:', uploadsDir);
+    
     // 確保目錄存在
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    try {
+      if (!fs.existsSync(uploadsDir)) {
+        console.log('創建報價單上傳目錄:', uploadsDir);
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      cb(null, uploadsDir);
+    } catch (error) {
+      console.error('創建報價單上傳目錄失敗:', error);
+      // 如果無法創建目錄，則使用系統臨時目錄
+      const tempDir = require('os').tmpdir();
+      console.log('使用系統臨時目錄:', tempDir);
+      cb(null, tempDir);
     }
-    cb(null, uploadsDir);
   },
   filename: function(req, file, cb) {
-    cb(null, `quote-import-${Date.now()}-${file.originalname}`);
+    const uniqueFileName = `quote-import-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    console.log('生成報價單文件名:', uniqueFileName);
+    cb(null, uniqueFileName);
   }
 });
 
 // 定義允許的文件類型
 const fileFilter = (req, file, cb) => {
-  if (
-    file.mimetype === 'text/csv' || 
-    file.mimetype === 'application/vnd.ms-excel' ||
-    file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  ) {
+  const originalName = file.originalname.toLowerCase();
+  const mimeType = file.mimetype.toLowerCase();
+  
+  console.log(`檢查報價單檔案: ${originalName}, MIME類型: ${mimeType}`);
+  
+  // 檢查副檔名
+  const validExtensions = ['.csv', '.xls', '.xlsx'];
+  const fileExt = path.extname(originalName).toLowerCase();
+  const isValidExtension = validExtensions.includes(fileExt);
+  
+  // 檢查MIME類型
+  const validMimeTypes = [
+    'text/csv',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/octet-stream' // 某些系統可能會將CSV檔案識別為此類型
+  ];
+  const isValidMimeType = validMimeTypes.includes(mimeType);
+  
+  if (isValidExtension && isValidMimeType) {
+    console.log(`報價單檔案格式有效: ${originalName}`);
     cb(null, true);
   } else {
-    cb(new Error('不支援的文件格式！只允許 .csv 和 .xlsx 文件'), false);
+    console.error(`報價單檔案格式無效: ${originalName}, MIME: ${mimeType}`);
+    cb(new Error('不支援的文件格式！只允許 .csv、.xls 和 .xlsx 文件'), false);
   }
 };
 
@@ -172,36 +203,7 @@ router.post('/create', [
   }
 });
 
-// 報價單詳情頁面
-router.get('/:id', isAuthenticated, async (req, res) => {
-  try {
-    const quote = await Quote.findById(req.params.id);
-    if (!quote) {
-      return res.status(404).render('pages/error', {
-        title: '找不到報價單',
-        message: '找不到指定的報價單'
-      });
-    }
-
-    // 取得客戶資料
-    const customer = await Customer.findById(quote.customerId);
-    
-    res.render('pages/quotes/view', {
-      title: `報價單 #${quote.id}`,
-      active: 'quotes',
-      quote,
-      customer
-    });
-  } catch (err) {
-    console.error('取得報價單詳情錯誤:', err);
-    res.status(500).render('pages/error', {
-      title: '伺服器錯誤',
-      message: '取得報價單詳情時發生錯誤'
-    });
-  }
-});
-
-// 編輯報價單頁面
+// 編輯報價單頁面 - 確保在 /:id 之前
 router.get('/edit/:id', isAuthenticated, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -209,14 +211,6 @@ router.get('/edit/:id', isAuthenticated, async (req, res) => {
       return res.status(404).render('pages/error', {
         title: '找不到報價單',
         message: '找不到指定的報價單'
-      });
-    }
-
-    // 不允許編輯非草稿狀態的報價單
-    if (quote.status !== 'draft') {
-      return res.status(403).render('pages/error', {
-        title: '無法編輯',
-        message: '只能編輯草稿狀態的報價單'
       });
     }
 
@@ -232,10 +226,10 @@ router.get('/edit/:id', isAuthenticated, async (req, res) => {
       products
     });
   } catch (err) {
-    console.error('取得報價單編輯資料錯誤:', err);
+    console.error('取得報價單資料錯誤:', err);
     res.status(500).render('pages/error', {
       title: '伺服器錯誤',
-      message: '取得報價單編輯資料時發生錯誤'
+      message: '取得報價單資料時發生錯誤'
     });
   }
 });
@@ -336,7 +330,36 @@ router.post('/edit/:id', [
   }
 });
 
-// 複製報價單到新報價單
+// 產生報價單 PDF
+router.get('/pdf/:id', isAuthenticated, async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id);
+    if (!quote) {
+      return res.status(404).render('pages/error', {
+        title: '找不到報價單',
+        message: '找不到指定的報價單'
+      });
+    }
+
+    // 取得客戶資料
+    const customer = await Customer.findById(quote.customerId);
+    
+    // 渲染PDF模板
+    res.render('pages/quotes/pdf', {
+      layout: 'pdf', // 使用PDF專用布局
+      quote,
+      customer
+    });
+  } catch (err) {
+    console.error('產生報價單PDF錯誤:', err);
+    res.status(500).render('pages/error', {
+      title: '伺服器錯誤',
+      message: '產生報價單PDF時發生錯誤'
+    });
+  }
+});
+
+// 複製報價單頁面 - 確保在 /:id 之前
 router.get('/copy/:id', isAuthenticated, async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id);
@@ -350,21 +373,23 @@ router.get('/copy/:id', isAuthenticated, async (req, res) => {
     const customers = await Customer.getAll();
     const products = await Product.getAll();
     
-    // 修改部分資料以便建立為新的報價單
-    const newQuote = { ...quote };
-    delete newQuote.id; // 移除ID，以建立新的報價單
-    newQuote.quoteDate = new Date().toISOString().split('T')[0]; // 設為今天
+    // 準備複製的報價單
+    const copiedQuote = { ...quote };
+    copiedQuote.id = null;
+    copiedQuote.quoteNumber = ''; // 新建時會自動生成
+    copiedQuote.status = 'draft';
+    copiedQuote.issueDate = new Date().toISOString().split('T')[0]; // 今天
     
-    // 計算新的有效期限，預設為30天後
+    // 計算新的有效期限 (今天 + 30天)
     const validUntil = new Date();
     validUntil.setDate(validUntil.getDate() + 30);
-    newQuote.validUntil = validUntil.toISOString().split('T')[0];
+    copiedQuote.validUntil = validUntil.toISOString().split('T')[0];
     
     res.render('pages/quotes/create', {
-      title: '從現有報價單建立',
+      title: '複製報價單',
       active: 'quotes',
       error: null,
-      quote: newQuote,
+      quote: copiedQuote,
       customers,
       products,
       isCopy: true
@@ -422,35 +447,6 @@ router.post('/delete/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// 產生報價單PDF
-router.get('/pdf/:id', isAuthenticated, async (req, res) => {
-  try {
-    const quote = await Quote.findById(req.params.id);
-    if (!quote) {
-      return res.status(404).render('pages/error', {
-        title: '找不到報價單',
-        message: '找不到指定的報價單'
-      });
-    }
-
-    // 取得客戶資料
-    const customer = await Customer.findById(quote.customerId);
-    
-    // 渲染PDF模板
-    res.render('pages/quotes/pdf', {
-      layout: 'pdf', // 使用PDF專用布局
-      quote,
-      customer
-    });
-  } catch (err) {
-    console.error('產生報價單PDF錯誤:', err);
-    res.status(500).render('pages/error', {
-      title: '伺服器錯誤',
-      message: '產生報價單PDF時發生錯誤'
-    });
-  }
-});
-
 // 搜尋報價單
 router.get('/search', isAuthenticated, async (req, res) => {
   try {
@@ -476,7 +472,7 @@ router.get('/search', isAuthenticated, async (req, res) => {
   }
 });
 
-// 報價單批量匯入頁面
+// 報價單批量匯入頁面 - 確保在 /:id 之前
 router.get('/import', isAuthenticated, async (req, res) => {
   try {
     const customers = await Customer.getAll();
@@ -581,10 +577,16 @@ function parseCSV(filePath) {
             quotes.push(currentQuote);
           }
           
+          // 確保客戶ID為整數
+          let customerId = row.customerId || row.CustomerId || row['客戶ID'] || '';
+          if (customerId && !isNaN(customerId)) {
+            customerId = parseInt(customerId, 10);
+          }
+          
           // 創建新報價單
           currentQuote = {
             quoteNumber: row.quoteNumber || row.QuoteNumber || row['報價單號'] || '',
-            customerId: row.customerId || row.CustomerId || row['客戶ID'] || '',
+            customerId: customerId,
             title: row.title || row.Title || row['標題'] || '',
             description: row.description || row.Description || row['描述'] || '',
             issueDate: row.issueDate || row.IssueDate || row['報價日期'] || new Date().toISOString().split('T')[0],
@@ -642,10 +644,16 @@ function parseExcel(filePath) {
         quotes.push(currentQuote);
       }
       
+      // 確保客戶ID為整數
+      let customerId = row.customerId || row.CustomerId || row['客戶ID'] || '';
+      if (customerId && !isNaN(customerId)) {
+        customerId = parseInt(customerId, 10);
+      }
+      
       // 創建新報價單
       currentQuote = {
         quoteNumber: row.quoteNumber || row.QuoteNumber || row['報價單號'] || '',
-        customerId: row.customerId || row.CustomerId || row['客戶ID'] || '',
+        customerId: customerId,
         title: row.title || row.Title || row['標題'] || '',
         description: row.description || row.Description || row['描述'] || '',
         issueDate: row.issueDate || row.IssueDate || row['報價日期'] || new Date().toISOString().split('T')[0],
@@ -680,5 +688,34 @@ function parseExcel(filePath) {
   
   return quotes;
 }
+
+// 報價單詳情頁面 - 確保在特定路由後面
+router.get('/:id', isAuthenticated, async (req, res) => {
+  try {
+    const quote = await Quote.findById(req.params.id);
+    if (!quote) {
+      return res.status(404).render('pages/error', {
+        title: '找不到報價單',
+        message: '找不到指定的報價單'
+      });
+    }
+
+    // 取得客戶資料
+    const customer = await Customer.findById(quote.customerId);
+    
+    res.render('pages/quotes/view', {
+      title: `報價單 #${quote.id}`,
+      active: 'quotes',
+      quote,
+      customer
+    });
+  } catch (err) {
+    console.error('取得報價單詳情錯誤:', err);
+    res.status(500).render('pages/error', {
+      title: '伺服器錯誤',
+      message: '取得報價單詳情時發生錯誤'
+    });
+  }
+});
 
 module.exports = router; 

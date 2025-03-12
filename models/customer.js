@@ -240,77 +240,128 @@ class Customer {
       
       console.log(`開始批量匯入 ${customers.length} 筆客戶資料`);
       
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
+      // 先收集所有客戶名稱，以便檢查是否有重複
+      const customerNames = [];
+      
+      // 取得所有現有客戶名稱
+      db.all('SELECT id, name FROM customers', [], (err, rows) => {
+        if (err) {
+          console.error('獲取現有客戶列表時出錯:', err);
+          return reject(err);
+        }
         
-        const stmt = db.prepare(`
-          INSERT INTO customers (name, contact_person, email, phone, address, tax_id, notes, created_by, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+        // 創建現有客戶名稱的映射，用於快速查找
+        const existingCustomers = {};
+        rows.forEach(row => {
+          existingCustomers[row.name.toLowerCase()] = row.id;
+        });
         
-        customers.forEach((customer, index) => {
-          try {
-            if (!customer.name) {
+        console.log(`檢查到系統中有 ${rows.length} 個現有客戶`);
+        
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+          
+          const stmt = db.prepare(`
+            INSERT INTO customers (name, contact_person, email, phone, address, tax_id, notes, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
+          
+          // 處理每個待匯入的客戶
+          customers.forEach((customer, index) => {
+            try {
+              // 檢查客戶名稱是否為空
+              if (!customer.name || customer.name.trim() === '') {
+                failedCount++;
+                failedItems.push({
+                  data: customer,
+                  reason: '客戶名稱不能為空'
+                });
+                console.warn(`第 ${index + 1} 筆資料匯入失敗: 客戶名稱不能為空`);
+                return;
+              }
+              
+              // 檢查是否與已處理過的數據重複
+              const lowerName = customer.name.toLowerCase().trim();
+              if (customerNames.includes(lowerName)) {
+                failedCount++;
+                failedItems.push({
+                  data: customer,
+                  reason: `批次資料中有重複的客戶名稱: "${customer.name}"`
+                });
+                console.warn(`第 ${index + 1} 筆資料匯入失敗: 批次資料中有重複的客戶名稱`);
+                return;
+              }
+              
+              // 檢查是否與現有客戶重複
+              if (existingCustomers[lowerName]) {
+                failedCount++;
+                failedItems.push({
+                  data: customer,
+                  reason: `系統中已存在相同名稱的客戶: "${customer.name}"`
+                });
+                console.warn(`第 ${index + 1} 筆資料匯入失敗: 系統中已存在相同名稱的客戶`);
+                return;
+              }
+              
+              // 記錄已處理的客戶名稱
+              customerNames.push(lowerName);
+              
+              // 插入新客戶
+              stmt.run(
+                customer.name,
+                customer.contactPerson || '',
+                customer.email || '',
+                customer.phone || '',
+                customer.address || '',
+                customer.taxId || '',
+                customer.notes || '',
+                customer.createdBy,
+                now,
+                now,
+                function(err) {
+                  if (err) {
+                    failedCount++;
+                    failedItems.push({
+                      data: customer,
+                      reason: err.message
+                    });
+                    console.error(`第 ${index + 1} 筆資料匯入失敗: ${err.message}`);
+                  } else {
+                    successCount++;
+                    if (successCount % 10 === 0) {
+                      console.log(`已成功匯入 ${successCount} 筆資料`);
+                    }
+                    
+                    // 更新現有客戶映射，以防止後續重複
+                    existingCustomers[lowerName] = this.lastID;
+                  }
+                }
+              );
+            } catch (err) {
               failedCount++;
               failedItems.push({
                 data: customer,
-                reason: '客戶名稱不能為空'
+                reason: err.message
               });
-              console.warn(`第 ${index + 1} 筆資料匯入失敗: 客戶名稱不能為空`);
-              return;
+              console.error(`處理第 ${index + 1} 筆資料時發生錯誤: ${err.message}`);
+            }
+          });
+          
+          stmt.finalize();
+          
+          db.run('COMMIT', function(err) {
+            if (err) {
+              console.error(`提交事務時發生錯誤: ${err.message}`);
+              db.run('ROLLBACK');
+              return reject(err);
             }
             
-            stmt.run(
-              customer.name,
-              customer.contactPerson || '',
-              customer.email || '',
-              customer.phone || '',
-              customer.address || '',
-              customer.taxId || '',
-              customer.notes || '',
-              customer.createdBy,
-              now,
-              now,
-              function(err) {
-                if (err) {
-                  failedCount++;
-                  failedItems.push({
-                    data: customer,
-                    reason: err.message
-                  });
-                  console.error(`第 ${index + 1} 筆資料匯入失敗: ${err.message}`);
-                } else {
-                  successCount++;
-                  if (successCount % 10 === 0) {
-                    console.log(`已成功匯入 ${successCount} 筆資料`);
-                  }
-                }
-              }
-            );
-          } catch (err) {
-            failedCount++;
-            failedItems.push({
-              data: customer,
-              reason: err.message
+            console.log(`批量匯入完成: 成功 ${successCount} 筆，失敗 ${failedCount} 筆`);
+            resolve({
+              success: successCount,
+              failed: failedCount,
+              failedItems: failedItems
             });
-            console.error(`處理第 ${index + 1} 筆資料時發生錯誤: ${err.message}`);
-          }
-        });
-        
-        stmt.finalize();
-        
-        db.run('COMMIT', function(err) {
-          if (err) {
-            console.error(`提交事務時發生錯誤: ${err.message}`);
-            db.run('ROLLBACK');
-            return reject(err);
-          }
-          
-          console.log(`批量匯入完成: 成功 ${successCount} 筆，失敗 ${failedCount} 筆`);
-          resolve({
-            success: successCount,
-            failed: failedCount,
-            failedItems: failedItems
           });
         });
       });

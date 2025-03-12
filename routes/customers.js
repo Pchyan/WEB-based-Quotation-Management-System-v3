@@ -9,18 +9,35 @@ const path = require('path');
 const xlsx = require('xlsx');
 
 // 確保上傳目錄存在
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// 使用絕對路徑而不是相對路徑，以避免路徑問題
+const uploadsDir = path.resolve(__dirname, '../uploads');
+console.log('客戶資料上傳目錄路徑:', uploadsDir);
+
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    console.log('創建客戶資料上傳目錄:', uploadsDir);
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (error) {
+  console.error('創建客戶資料上傳目錄失敗:', error);
 }
 
 // 配置文件上傳
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-    cb(null, uploadsDir);
+    // 如果主目錄不可用，使用系統臨時目錄
+    if (!fs.existsSync(uploadsDir)) {
+      const tempDir = require('os').tmpdir();
+      console.log('使用系統臨時目錄:', tempDir);
+      cb(null, tempDir);
+    } else {
+      cb(null, uploadsDir);
+    }
   },
   filename: function(req, file, cb) {
-    cb(null, `customer-import-${Date.now()}-${file.originalname}`);
+    const uniqueFileName = `customer-import-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    console.log('生成客戶資料文件名:', uniqueFileName);
+    cb(null, uniqueFileName);
   }
 });
 
@@ -137,36 +154,7 @@ router.post('/create', [
   }
 });
 
-// 客戶詳情頁面
-router.get('/:id', isAuthenticated, async (req, res) => {
-  try {
-    const customer = await Customer.findById(req.params.id);
-    if (!customer) {
-      return res.status(404).render('pages/error', {
-        title: '找不到客戶',
-        message: '找不到指定的客戶'
-      });
-    }
-
-    // 獲取該客戶的報價單
-    const quotes = await Customer.getQuotes(req.params.id);
-
-    res.render('pages/customers/view', {
-      title: customer.name,
-      active: 'customers',
-      customer,
-      quotes
-    });
-  } catch (err) {
-    console.error('取得客戶詳情錯誤:', err);
-    res.status(500).render('pages/error', {
-      title: '伺服器錯誤',
-      message: '取得客戶詳情時發生錯誤'
-    });
-  }
-});
-
-// 編輯客戶頁面
+// 編輯客戶頁面 - 放在 /:id 之前
 router.get('/edit/:id', isAuthenticated, async (req, res) => {
   try {
     const customer = await Customer.findById(req.params.id);
@@ -272,7 +260,7 @@ router.post('/delete/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// 搜尋客戶
+// 搜尋客戶 - 確保在 /:id 路由之前
 router.get('/search', isAuthenticated, async (req, res) => {
   try {
     const query = req.query.q || '';
@@ -294,7 +282,7 @@ router.get('/search', isAuthenticated, async (req, res) => {
   }
 });
 
-// 客戶批量匯入頁面
+// 客戶批量匯入頁面 - 確保在 /:id 路由之前
 router.get('/import', isAuthenticated, (req, res) => {
   res.render('pages/customers/import', {
     title: '批量匯入客戶',
@@ -432,6 +420,35 @@ router.post('/import', isAuthenticated, upload.single('file'), async (req, res) 
       title: '批量匯入客戶',
       error: `匯入過程發生錯誤: ${err.message}`,
       success: null
+    });
+  }
+});
+
+// 客戶詳情頁面 - 確保在特定路由後面
+router.get('/:id', isAuthenticated, async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) {
+      return res.status(404).render('pages/error', {
+        title: '找不到客戶',
+        message: '找不到指定的客戶'
+      });
+    }
+
+    // 獲取該客戶的報價單
+    const quotes = await Customer.getQuotes(req.params.id);
+
+    res.render('pages/customers/view', {
+      title: customer.name,
+      active: 'customers',
+      customer,
+      quotes
+    });
+  } catch (err) {
+    console.error('取得客戶詳情錯誤:', err);
+    res.status(500).render('pages/error', {
+      title: '伺服器錯誤',
+      message: '取得客戶詳情時發生錯誤'
     });
   }
 });

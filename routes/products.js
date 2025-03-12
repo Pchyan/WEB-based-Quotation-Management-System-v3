@@ -11,15 +11,29 @@ const xlsx = require('xlsx');
 // 配置文件上傳
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
-    const uploadsDir = path.join(__dirname, '../uploads');
+    // 使用絕對路徑而不是相對路徑，以避免路徑問題
+    const uploadsDir = path.resolve(__dirname, '../uploads');
+    console.log('上傳目錄路徑:', uploadsDir);
+    
     // 確保目錄存在
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    try {
+      if (!fs.existsSync(uploadsDir)) {
+        console.log('創建上傳目錄:', uploadsDir);
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      cb(null, uploadsDir);
+    } catch (error) {
+      console.error('創建上傳目錄失敗:', error);
+      // 如果無法創建目錄，則使用系統臨時目錄
+      const tempDir = require('os').tmpdir();
+      console.log('使用系統臨時目錄:', tempDir);
+      cb(null, tempDir);
     }
-    cb(null, uploadsDir);
   },
   filename: function(req, file, cb) {
-    cb(null, `product-import-${Date.now()}-${file.originalname}`);
+    const uniqueFileName = `product-import-${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    console.log('生成文件名:', uniqueFileName);
+    cb(null, uniqueFileName);
   }
 });
 
@@ -152,32 +166,7 @@ router.post('/create', [
   }
 });
 
-// 產品詳情頁面
-router.get('/:id', isAuthenticated, async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).render('pages/error', {
-        title: '找不到產品',
-        message: '找不到指定的產品'
-      });
-    }
-
-    res.render('pages/products/view', {
-      title: product.name,
-      active: 'products',
-      product
-    });
-  } catch (err) {
-    console.error('取得產品詳情錯誤:', err);
-    res.status(500).render('pages/error', {
-      title: '伺服器錯誤',
-      message: '取得產品詳情時發生錯誤'
-    });
-  }
-});
-
-// 編輯產品頁面
+// 編輯產品頁面 - 確保在 /:id 之前
 router.get('/edit/:id', isAuthenticated, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -297,7 +286,7 @@ router.post('/delete/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// API 端點，獲取產品信息，用於報價單項目選擇
+// API 端點，獲取產品信息，用於報價單項目選擇 - 確保在 /:id 之前
 router.get('/api/:id', isAuthenticated, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -318,7 +307,7 @@ router.get('/api/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-// 產品批量匯入頁面
+// 產品批量匯入頁面 - 確保在 /:id 之前
 router.get('/import', isAuthenticated, (req, res) => {
   res.render('pages/products/import', {
     title: '批量匯入產品',
@@ -378,6 +367,31 @@ router.post('/import', isAuthenticated, upload.single('file'), async (req, res) 
       title: '批量匯入產品',
       error: '匯入過程發生錯誤: ' + err.message,
       success: null
+    });
+  }
+});
+
+// 產品詳情頁面 - 確保在特定路由後面
+router.get('/:id', isAuthenticated, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).render('pages/error', {
+        title: '找不到產品',
+        message: '找不到指定的產品'
+      });
+    }
+
+    res.render('pages/products/view', {
+      title: product.name,
+      active: 'products',
+      product
+    });
+  } catch (err) {
+    console.error('取得產品詳情錯誤:', err);
+    res.status(500).render('pages/error', {
+      title: '伺服器錯誤',
+      message: '取得產品詳情時發生錯誤'
     });
   }
 });

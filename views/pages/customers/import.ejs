@@ -40,51 +40,54 @@
                 <li>首字母大寫：Name, ContactPerson, Email, Phone, Address, TaxId, Notes</li>
                 <li>中文欄位：客戶名稱, 聯絡人, 電子郵件, 電話, 地址, 統一編號, 備註</li>
               </ul>
+              
+              <div class="alert alert-warning mt-3">
+                <h6><i class="fas fa-exclamation-triangle"></i> 重要提醒</h6>
+                <ul class="mb-0">
+                  <li>客戶名稱必須唯一，如果匯入的客戶名稱已存在，該筆資料將被拒絕匯入</li>
+                  <li>匯入前請檢查資料是否完整且正確，特別是客戶名稱</li>
+                  <li>如果需要更新現有客戶，請使用客戶詳情頁面的編輯功能</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
+        
         <div class="col-md-6">
           <div class="card h-100">
             <div class="card-body">
-              <h5 class="card-title">範例檔案</h5>
+              <h5 class="card-title">上傳檔案</h5>
               <hr>
-              <p>您可以下載以下範例檔案作為參考：</p>
-              <ul>
-                <li>
-                  <a href="/templates/customer_import_template.csv" download>
-                    <i class="fas fa-file-csv"></i> CSV 範例檔案
-                  </a>
-                </li>
-                <!-- Excel範例文件將在未來提供 -->
-                <!-- 
-                <li>
-                  <a href="/templates/customer_import_template.xlsx" download>
-                    <i class="fas fa-file-excel"></i> Excel 範例檔案
-                  </a>
-                </li>
-                -->
-              </ul>
-              <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> 匯入的客戶資料將與您的帳號關聯。
+              <form action="/customers/import" method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                  <label for="file" class="form-label">選擇檔案</label>
+                  <input type="file" class="form-control" id="file" name="file" accept=".csv, .xlsx, .xls" required>
+                  <div class="form-text">支援的檔案格式: CSV (.csv) 或 Excel (.xlsx, .xls)</div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-upload"></i> 開始匯入
+                </button>
+              </form>
+              
+              <div class="mt-4">
+                <h6>匯入範本下載</h6>
+                <ul>
+                  <li>
+                    <a href="/templates/customer_import_template.csv" download>
+                      <i class="fas fa-file-csv"></i> CSV格式範本
+                    </a>
+                  </li>
+                  <li>
+                    <a href="/templates/customer_import_template.xlsx" download>
+                      <i class="fas fa-file-excel"></i> Excel格式範本
+                    </a>
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
         </div>
       </div>
-      
-      <form action="/customers/import" method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-          <label for="file" class="form-label">選擇檔案</label>
-          <input type="file" class="form-control" id="file" name="file" accept=".csv, .xls, .xlsx" required>
-          <div class="form-text">請選擇 CSV 或 Excel 檔案 (.csv, .xls, .xlsx)</div>
-        </div>
-        
-        <div class="d-grid">
-          <button type="submit" class="btn btn-primary">
-            <i class="fas fa-upload"></i> 上傳並匯入
-          </button>
-        </div>
-      </form>
       
       <% if (locals.results && locals.results.failedItems && locals.results.failedItems.length > 0) { %>
         <div class="mt-4">
@@ -107,7 +110,7 @@
                     <td><%= item.data.contactPerson || '(空)' %></td>
                     <td><%= item.data.email || '(空)' %></td>
                     <td><%= item.data.phone || '(空)' %></td>
-                    <td><%= item.reason %></td>
+                    <td class="text-danger"><%= item.reason %></td>
                   </tr>
                 <% }); %>
               </tbody>
@@ -118,5 +121,7 @@
     </div>
   </div>
 </div>
+
+<%- include('../../partials/footer') %> 
 
 <%- include('../../partials/footer') %> 

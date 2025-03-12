@@ -8,6 +8,11 @@
           <h4><%= locals.appName %> 登入</h4>
         </div>
         <div class="card-body">
+          <% if (locals.messages && messages.success) { %>
+            <div class="alert alert-success" role="alert">
+              <%= messages.success %>
+            </div>
+          <% } %>
           <% if (error) { %>
             <div class="alert alert-danger" role="alert">
               <%= error %>
@@ -30,6 +35,9 @@
                   <span class="input-group-text"><i class="fas fa-lock"></i></span>
                 </div>
                 <input type="password" class="form-control" id="password" name="password" required>
+              </div>
+              <div class="text-right mt-1">
+                <small><a href="/auth/forgot-password">忘記密碼?</a></small>
               </div>
             </div>
             <div class="form-group">

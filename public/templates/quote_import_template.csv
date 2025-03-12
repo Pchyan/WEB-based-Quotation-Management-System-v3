@@ -1,4 +1,6 @@
-quoteNumber,customerId,title,description,issueDate,validUntil,status,discountType,discountValue,taxRate,notes,terms,productId,itemDescription,quantity,unitPrice,itemDiscount,amount
+quoteNumber,customerId,title,description,issueDate,validUntil,status,discountType,discountValue,taxRate,notes,terms,productId,itemDescription,quantity,unitPrice,discount,amount
+QT-2025-0001,1,年度IT設備採購,包含筆電、伺服器等設備,2025-03-01,2025-04-01,draft,percentage,5,5,請於30天內確認,付款條件：驗收後30天內,1,高級筆記型電腦,5,35000,0,175000
+QT-2025-0002,2,網路設備升級,辦公室區域網路設備更新,2025-03-15,2025-04-15,draft,fixed,2000,5,四月底前需完成,付款條件：50%訂金，餘款交付後支付,2,企業級路由器,2,12000,500,23000
 QT-2023001,1,網站開發專案,企業形象網站開發,2023-06-01,2023-07-01,draft,percentage,5,5,客戶要求6月底前完成,付款條件：50%預付款，50%驗收後,1,網站設計與開發,1,50000,0,50000
 QT-2023001,1,,,,,,,,,,,2,網站維護一年,1,10000,0,10000
 QT-2023002,2,行銷方案,數位行銷整合方案,2023-06-15,2023-07-15,sent,fixed,2000,5,包含社群媒體行銷,付款條件：月結30天,3,社群媒體行銷,3,5000,0,15000
