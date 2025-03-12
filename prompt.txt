@@ -1,0 +1,447 @@
+# 報價管理系統開發 Prompt
+
+## 系統概述
+
+請為我創建一個完整的基於 Web 的報價管理系統，專為企業提供全面的客戶、產品和報價管理解決方案。系統應包含用戶權限管理、客戶資訊管理、產品目錄管理、報價單生成以及資料庫備份等功能。整個系統需使用 Node.js 和 Express.js 作為後端框架，並使用 SQLite 作為資料庫，以減輕配置複雜度。
+
+## 技術堆疊
+
+- **後端框架**：Node.js + Express.js
+- **資料庫**：SQLite
+- **前端技術**：Bootstrap 5、jQuery、EJS 模板引擎
+- **認證與授權**：自定義會話管理（express-session + SQLite 存儲）
+- **核心依賴**：
+  - express：Web 框架
+  - sqlite3：資料庫驅動
+  - express-session：會話管理
+  - connect-sqlite3：SQLite 會話存儲
+  - bcrypt：密碼加密
+  - multer：檔案上傳處理
+  - archiver：檔案壓縮（用於備份功能）
+  - node-cron：排程任務
+  - date-fns：日期處理
+  - dotenv：環境變數管理
+  - express-flash：閃爍消息
+  - nodemailer：郵件發送（用於密碼重置功能）
+
+## 系統架構
+
+請實現以下目錄結構：
+
+```
+/
+├── app.js                 # 應用程式入口
+├── package.json           # 專案依賴
+├── .env                   # 環境變數配置
+├── public/                # 靜態資源
+│   ├── css/               # 樣式表
+│   ├── js/                # 前端腳本
+│   └── img/               # 圖片資源
+├── views/                 # EJS 視圖文件
+│   ├── partials/          # 頁面部分組件
+│   └── pages/             # 頁面模板
+├── routes/                # 路由處理
+│   ├── auth.js            # 認證路由
+│   ├── users.js           # 用戶管理
+│   ├── customers.js       # 客戶管理
+│   ├── products.js        # 產品管理
+│   ├── quotes.js          # 報價管理
+│   ├── reports.js         # 報表
+│   └── backup.js          # 資料庫備份
+├── controllers/           # 控制器邏輯
+├── models/                # 資料模型
+├── middlewares/           # 中間件
+│   └── auth.js            # 認證中間件
+├── utils/                 # 工具函數
+│   ├── backup.js          # 備份工具
+│   └── scheduler.js       # 排程工具
+├── database/              # 資料庫文件
+│   └── init.js            # 資料庫初始化
+├── uploads/               # 文件上傳目錄
+├── backups/               # 資料庫備份目錄
+└── config/                # 配置文件
+    └── settings.js        # 系統設置
+```
+
+## 資料模型設計
+
+實現以下主要資料模型：
+
+### 1. 用戶模型 (User)
+- id: 唯一識別碼
+- username: 用戶名
+- password: 加密密碼
+- email: 電子郵件
+- fullName: 姓名
+- role: 角色 (admin/user)
+- isAdmin: 是否為管理員
+- resetToken: 密碼重置令牌
+- resetTokenExpiry: 令牌過期時間
+- preferences: 用戶偏好設定 (JSON)
+- createdAt: 創建時間
+- updatedAt: 更新時間
+
+### 2. 客戶模型 (Customer)
+- id: 唯一識別碼
+- name: 客戶名稱
+- contactPerson: 聯繫人
+- email: 電子郵件
+- phone: 電話
+- address: 地址
+- taxId: 稅務編號
+- notes: 備註
+- createdBy: 創建者ID
+- createdAt: 創建時間
+- updatedAt: 更新時間
+
+### 3. 產品模型 (Product)
+- id: 唯一識別碼
+- code: 產品代碼
+- name: 產品名稱
+- description: 產品描述
+- category: 類別
+- unit: 單位
+- price: 價格
+- cost: 成本
+- taxRate: 稅率
+- status: 狀態 (active/inactive)
+- createdAt: 創建時間
+- updatedAt: 更新時間
+
+### 4. 報價單模型 (Quote)
+- id: 唯一識別碼
+- quoteNumber: 報價單號
+- customerId: 客戶ID
+- contactPerson: 聯繫人
+- issueDate: 發行日期
+- validUntil: 有效期
+- terms: 條款
+- notes: 備註
+- subtotal: 小計
+- taxAmount: 稅額
+- totalAmount: 總額
+- status: 狀態 (draft/sent/accepted/rejected)
+- createdBy: 創建者ID
+- createdAt: 創建時間
+- updatedAt: 更新時間
+
+### 5. 報價項目模型 (QuoteItem)
+- id: 唯一識別碼
+- quoteId: 報價單ID
+- productId: 產品ID
+- description: 描述
+- quantity: 數量
+- unitPrice: 單價
+- discount: 折扣
+- taxRate: 稅率
+- total: 總額
+
+### 6. 備份記錄模型 (BackupRecord)
+- filename: 檔案名稱
+- note: 備註
+- size: 檔案大小
+- timestamp: 創建時間
+- auto: 是否為自動備份
+
+### 7. 排程任務模型 (ScheduleTask)
+- id: 任務ID
+- cronExpression: cron表達式
+- type: 任務類型
+- note: 備註
+- active: 是否啟用
+- lastRun: 上次執行時間
+- created: 創建時間
+
+## 核心功能需求
+
+### 1. 用戶認證與授權
+
+實現完整的用戶認證系統，包括：
+- 用戶註冊，包含基本驗證
+- 安全的登入機制
+- 密碼重置功能（通過電子郵件）
+- 基於角色的訪問控制
+- 登出功能
+- 中間件實現訪問控制
+
+### 2. 用戶管理
+
+管理員可以：
+- 查看所有用戶列表
+- 創建新用戶
+- 編輯用戶信息
+- 更改用戶權限
+- 重置用戶密碼
+- 停用/啟用用戶帳號
+
+### 3. 客戶管理
+
+用戶可以：
+- 查看客戶列表（分頁）
+- 添加新客戶
+- 編輯客戶資訊
+- 刪除客戶
+- 搜索與篩選客戶
+- 從CSV檔案批量匯入客戶
+- 匯出客戶資料到CSV
+
+### 4. 產品管理
+
+用戶可以：
+- 查看產品列表（分頁）
+- 添加新產品
+- 編輯產品資訊
+- 刪除產品
+- 分類與標籤產品
+- 從CSV檔案批量匯入產品
+- 匯出產品資料到CSV
+
+### 5. 報價單管理
+
+用戶可以：
+- 創建新報價單
+- 添加產品到報價單
+- 自動計算小計、稅額和總額
+- 編輯報價條款和備註
+- 預覽報價單
+- 下載報價單為PDF
+- 標記報價單狀態
+- 搜索與篩選報價單
+
+### 6. 報表功能
+
+提供基本的報表功能：
+- 銷售報表（按時間段）
+- 客戶報表
+- 產品報表
+- 自定義日期範圍選擇
+
+### 7. 資料庫備份功能（重點實現）
+
+這是一個特殊功能，需要詳細實現以下功能：
+
+#### 7.1 備份工具類 (utils/backup.js)
+
+實現一個備份工具類，提供以下功能：
+- 創建資料庫壓縮備份
+- 獲取備份列表
+- 刪除備份
+- 記錄備份資訊
+
+代碼示例：
+```javascript
+class DatabaseBackup {
+  constructor() {
+    // 獲取資料庫路徑，預設為 ./database/quotation.sqlite
+    this.dbPath = process.env.DB_PATH || path.join(__dirname, '../database/quotation.sqlite');
+    
+    // 設定備份目錄
+    this.backupDir = path.join(__dirname, '../backups');
+    
+    // 確保備份目錄存在
+    if (!fs.existsSync(this.backupDir)) {
+      fs.mkdirSync(this.backupDir, { recursive: true });
+    }
+  }
+
+  /**
+   * 建立資料庫壓縮備份
+   * @param {string} note 備份說明
+   * @returns {Promise<string>} 備份檔案路徑
+   */
+  createBackup(note = '') {
+    // 實現壓縮備份邏輯
+  }
+
+  /**
+   * 獲取所有備份檔案列表
+   * @returns {Array} 備份檔案列表
+   */
+  getBackupsList() {
+    // 實現獲取備份列表邏輯
+  }
+
+  /**
+   * 刪除備份檔案
+   * @param {string} filename 備份檔案名稱
+   * @returns {boolean} 是否刪除成功
+   */
+  deleteBackup(filename) {
+    // 實現刪除備份邏輯
+  }
+}
+```
+
+#### 7.2 排程工具類 (utils/scheduler.js)
+
+實現一個排程工具類，提供以下功能：
+- 載入與保存排程配置
+- 排程備份任務
+- 更新排程任務
+- 立即執行任務
+- 解釋cron表達式
+
+代碼示例：
+```javascript
+class Scheduler {
+  constructor() {
+    this.tasks = new Map();
+    this.configPath = path.join(__dirname, '../config/schedule.json');
+    
+    // 確保配置目錄存在
+    const configDir = path.dirname(this.configPath);
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+
+    // 載入排程配置
+    this.loadConfig();
+  }
+
+  /**
+   * 載入排程配置
+   */
+  loadConfig() {
+    // 實現配置載入邏輯
+  }
+
+  /**
+   * 排程一個任務
+   * @param {string} id 任務ID
+   * @param {string} cronExpression cron表達式
+   * @param {string} type 任務類型
+   * @param {string} note 任務說明
+   * @returns {boolean} 是否成功
+   */
+  scheduleTask(id, cronExpression, type = 'backup', note = '') {
+    // 實現任務排程邏輯
+  }
+}
+```
+
+#### 7.3 備份路由 (routes/backup.js)
+
+實現一個備份管理路由，提供以下端點：
+- GET /backup - 查看備份管理頁面
+- POST /backup/create - 創建手動備份
+- POST /backup/delete/:filename - 刪除備份
+- GET /backup/download/:filename - 下載備份
+- POST /backup/schedule - 創建排程備份任務
+- POST /backup/schedule/:id/update - 更新排程任務
+- POST /backup/schedule/:id/delete - 刪除排程任務
+- POST /backup/schedule/:id/run-now - 立即執行排程任務
+
+#### 7.4 備份管理頁面 (views/pages/backup/index.ejs)
+
+創建一個備份管理介面，包含：
+- 備份列表顯示
+- 手動備份按鈕與說明輸入
+- 備份排程設置表單，包含：
+  - 排程名稱輸入
+  - 備份頻率選擇（每天、每週、每月、自訂）
+  - 時間選擇器（24小時制）
+  - 週幾選擇（週日至週六，僅在每週選項時顯示）
+  - 月份日期選擇（1至28號，每月最後一天，僅在每月選項時顯示）
+  - 自訂Cron表達式輸入（僅在自訂選項時顯示）
+- 排程列表顯示與管理
+- 備份統計資訊
+
+### 8. 系統設定
+
+實現系統設定功能：
+- 基本設定：系統名稱、時區等
+- 電子郵件設定：配置SMTP伺服器
+- 用戶偏好設定：主題、語言等
+
+## UI/UX 設計要求
+
+- 使用Bootstrap 5框架實現響應式設計
+- 實現直覺的導航系統
+- 使用Font Awesome圖標增強視覺效果
+- 表單驗證與用戶友好的錯誤提示
+- 全局閃爍消息系統顯示操作結果
+- 適當的載入指示器
+- 實現日間/夜間模式切換
+- 針對資料表格實現排序與篩選功能
+
+## 系統初始化
+
+1. 資料庫初始化：
+   - 創建所有必要的表格
+   - 初始化管理員帳號 (admin/admin123)
+   - 初始化基本設定
+
+2. 目錄初始化：
+   - 確保上傳目錄存在
+   - 確保備份目錄存在
+   - 確保配置目錄存在
+
+## 特殊實現細節
+
+### 資料庫備份功能實現
+
+1. 使用archiver庫壓縮SQLite資料庫文件：
+   - 獲取資料庫文件路徑
+   - 創建一個zip壓縮流
+   - 將資料庫文件添加到壓縮檔
+   - 將壓縮檔存儲到備份目錄
+
+2. 實現備份排程：
+   - 使用node-cron庫設定定時任務
+   - 支援cron表達式解析
+   - 支援自訂執行時間
+   - 保存排程設定到配置文件
+
+3. 時間選擇UI實現：
+   - 使用HTML time input元素
+   - 根據選擇的排程類型動態顯示不同選項
+   - 自動生成對應的cron表達式
+
+4. 模態框實現：
+   - 使用Bootstrap模態框編輯排程任務
+   - 根據現有設定預填充表單
+   - 動態處理表單內容變更
+
+### 安全考量
+
+請確保實現以下安全措施：
+
+1. 密碼安全：
+   - 使用bcrypt加密儲存密碼
+   - 實施密碼強度要求
+
+2. 認證與授權：
+   - 中間件檢查用戶權限
+   - 防止水平越權訪問
+
+3. 輸入驗證：
+   - 驗證所有用戶輸入
+   - 防止SQL注入
+   - 防止XSS攻擊
+
+4. 會話安全：
+   - 安全的會話設定
+   - CSRF防護
+   - 適當的cookie設定
+
+## 實現要求
+
+1. 代碼應該模組化且易於維護
+2. 使用非同步編程處理I/O操作
+3. 包含適當的錯誤處理
+4. 添加用戶友好的錯誤頁面
+5. 確保系統日誌記錄關鍵操作
+6. 遵循最佳實踐與設計模式
+7. 添加註釋以說明關鍵邏輯
+
+## 測試數據
+
+初始化系統時，生成以下測試數據：
+- 5個測試用戶（包括1個管理員）
+- 10個測試客戶
+- 20個測試產品
+- 15個測試報價單
+
+## 最終交付
+
+請創建一個完整、功能齊全的報價管理系統，特別注意實現上述所有功能，特別是資料庫備份與排程功能。系統應該易於安裝、配置和使用，同時提供詳細的文檔和使用說明。 
