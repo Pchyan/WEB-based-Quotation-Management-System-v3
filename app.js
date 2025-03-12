@@ -22,6 +22,12 @@ const adminRoutes = require('./routes/admin');
 // 引入資料庫初始化
 const { initDatabase } = require('./database/init');
 
+// 初始化系統設置
+require('./config/settings').init();
+
+// 導入備份排程工具，確保系統啟動時初始化排程
+const scheduler = require('./utils/scheduler');
+
 // 建立 Express 應用程式
 const app = express();
 
@@ -91,6 +97,7 @@ app.use('/products', productRoutes);
 app.use('/quotes', quoteRoutes);
 app.use('/reports', reportRoutes);
 app.use('/admin', adminRoutes);
+app.use('/backup', require('./routes/backup')); // 新增：備份管理路由
 
 // 首頁路由
 app.get('/', (req, res) => {

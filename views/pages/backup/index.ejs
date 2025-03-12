@@ -1,0 +1,526 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/navbar') %>
+
+<div class="container-fluid mt-4">
+  <h1 class="mb-4">資料庫備份管理</h1>
+  
+  <% if (locals.error) { %>
+  <div class="alert alert-danger">
+    <%= error %>
+  </div>
+  <% } %>
+  
+  <% if (locals.success) { %>
+  <div class="alert alert-success">
+    <%= success %>
+  </div>
+  <% } %>
+
+  <div class="row">
+    <!-- 左側：備份列表 -->
+    <div class="col-md-8">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">備份檔案列表</h5>
+          <form action="/backup/create" method="POST" class="d-flex">
+            <input type="text" name="note" class="form-control form-control-sm mr-2" placeholder="備份說明">
+            <button type="submit" class="btn btn-light btn-sm">
+              <i class="fas fa-plus"></i> 立即備份
+            </button>
+          </form>
+        </div>
+        <div class="card-body">
+          <% if (backups && backups.length > 0) { %>
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
+                <thead>
+                  <tr>
+                    <th>檔案名稱</th>
+                    <th>建立時間</th>
+                    <th>大小</th>
+                    <th>說明</th>
+                    <th width="180">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% backups.forEach(backup => { %>
+                    <tr>
+                      <td><%= backup.filename %></td>
+                      <td><%= new Date(backup.created).toLocaleString() %></td>
+                      <td><%= (backup.size / 1024).toFixed(2) %> KB</td>
+                      <td>
+                        <% if (backup.auto) { %>
+                          <span class="badge badge-info">自動</span>
+                        <% } %>
+                        <%= backup.note || '無說明' %>
+                      </td>
+                      <td>
+                        <div class="btn-group btn-group-sm">
+                          <a href="/backup/download/<%= backup.filename %>" class="btn btn-outline-primary">
+                            <i class="fas fa-download"></i> 下載
+                          </a>
+                          <form action="/backup/delete/<%= backup.filename %>" method="POST" class="d-inline" onsubmit="return confirm('確定要刪除此備份嗎？')">
+                            <button type="submit" class="btn btn-outline-danger">
+                              <i class="fas fa-trash"></i> 刪除
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } else { %>
+            <div class="alert alert-info">
+              尚未建立任何備份
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右側：排程設置 -->
+    <div class="col-md-4">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">定時備份排程設置</h5>
+        </div>
+        <div class="card-body">
+          <!-- 新增排程 -->
+          <form action="/backup/schedule" method="POST" class="mb-4">
+            <div class="form-group">
+              <label for="id">排程名稱</label>
+              <input type="text" class="form-control" id="id" name="id" required placeholder="例如：daily_backup">
+            </div>
+            <div class="form-group">
+              <label for="cronExpression">備份頻率</label>
+              <select class="form-control" id="scheduleType" name="scheduleType">
+                <option value="daily">每天</option>
+                <option value="weekly">每週</option>
+                <option value="monthly">每月</option>
+                <option value="custom">自訂</option>
+              </select>
+            </div>
+            
+            <!-- 新增：時間選擇器 -->
+            <div class="form-group">
+              <label for="backupTime">執行時間</label>
+              <input type="time" class="form-control" id="backupTime" name="backupTime" value="03:00">
+              <small class="form-text text-muted">
+                選擇備份的執行時間（24小時制）
+              </small>
+            </div>
+            
+            <!-- 週幾選擇（僅在每週選項時顯示） -->
+            <div class="form-group" id="weekdayGroup" style="display:none;">
+              <label for="weekday">執行日</label>
+              <select class="form-control" id="weekday" name="weekday">
+                <option value="0">週日</option>
+                <option value="1">週一</option>
+                <option value="2">週二</option>
+                <option value="3">週三</option>
+                <option value="4">週四</option>
+                <option value="5">週五</option>
+                <option value="6">週六</option>
+              </select>
+            </div>
+            
+            <!-- 月份日期選擇（僅在每月選項時顯示） -->
+            <div class="form-group" id="monthDayGroup" style="display:none;">
+              <label for="monthDay">執行日期</label>
+              <select class="form-control" id="monthDay" name="monthDay">
+                <% for (let i = 1; i <= 28; i++) { %>
+                  <option value="<%= i %>"><%= i %> 號</option>
+                <% } %>
+                <option value="last">每月最後一天</option>
+              </select>
+            </div>
+            
+            <!-- 自訂 Cron 表達式（僅在自訂選項時顯示） -->
+            <div class="form-group" id="customCronGroup" style="display:none;">
+              <label for="customCron">自訂 Cron 表達式</label>
+              <input type="text" class="form-control" id="customCron" name="customCron" placeholder="例如：0 3 * * *">
+              <small class="form-text text-muted">
+                格式：分鐘 小時 日期 月份 星期 （0-59 0-23 1-31 1-12 0-6）
+              </small>
+            </div>
+            
+            <input type="hidden" id="cronExpression" name="cronExpression" value="0 3 * * *">
+            
+            <div class="form-group">
+              <label for="note">排程說明</label>
+              <input type="text" class="form-control" id="note" name="note" placeholder="例如：每日自動備份">
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-calendar-plus"></i> 建立排程
+            </button>
+          </form>
+
+          <!-- 現有排程列表 -->
+          <h6 class="border-bottom pb-2">現有排程</h6>
+          <% if (tasks && tasks.length > 0) { %>
+            <div class="list-group">
+              <% tasks.forEach(task => { %>
+                <div class="list-group-item list-group-item-action flex-column align-items-start">
+                  <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1"><%= task.id %></h6>
+                    <small class="text-<%= task.active ? 'success' : 'secondary' %>">
+                      <%= task.active ? '啟用中' : '已停用' %>
+                    </small>
+                  </div>
+                  <p class="mb-1">
+                    <strong>備份頻率:</strong> <%= explainCron(task.cronExpression) %>
+                    <br>
+                    <strong>說明:</strong> <%= task.note || '無說明' %>
+                    <% if (task.lastRun) { %>
+                      <br>
+                      <strong>上次執行:</strong> <%= new Date(task.lastRun).toLocaleString() %>
+                    <% } %>
+                  </p>
+                  <div class="btn-group btn-group-sm mt-2">
+                    <form action="/backup/schedule/<%= task.id %>/run-now" method="POST" class="d-inline">
+                      <button type="submit" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-play"></i> 立即執行
+                      </button>
+                    </form>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-toggle="modal" data-target="#editTask<%= task.id %>">
+                      <i class="fas fa-edit"></i> 編輯
+                    </button>
+                    <form action="/backup/schedule/<%= task.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('確定要刪除此排程嗎？')">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash"></i> 刪除
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- 編輯排程模態框 -->
+                <div class="modal fade" id="editTask<%= task.id %>" tabindex="-1" role="dialog" aria-labelledby="editTaskLabel<%= task.id %>" aria-hidden="true">
+                  <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                      <form action="/backup/schedule/<%= task.id %>/update" method="POST">
+                        <div class="modal-header">
+                          <h5 class="modal-title" id="editTaskLabel<%= task.id %>">編輯排程: <%= task.id %></h5>
+                          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                          </button>
+                        </div>
+                        <div class="modal-body">
+                          <!-- 解析現有的 Cron 表達式 -->
+                          <% 
+                            let cronParts = task.cronExpression.split(' ');
+                            let cronMinute = cronParts[0] || '0';
+                            let cronHour = cronParts[1] || '0';
+                            let cronDay = cronParts[2] || '*';
+                            let cronMonth = cronParts[3] || '*';
+                            let cronWeekday = cronParts[4] || '*';
+                            
+                            // 格式化時間為 HH:MM 格式
+                            let timeValue = ('0' + cronHour).slice(-2) + ':' + ('0' + cronMinute).slice(-2);
+                            
+                            // 確定排程類型
+                            let scheduleType = 'custom';
+                            if (cronDay === '*' && cronMonth === '*' && cronWeekday === '*') {
+                              scheduleType = 'daily';
+                            } else if (cronDay === '*' && cronMonth === '*' && cronWeekday !== '*') {
+                              scheduleType = 'weekly';
+                            } else if ((cronDay !== '*' || cronDay === 'L') && cronMonth === '*' && cronWeekday === '*') {
+                              scheduleType = 'monthly';
+                            }
+                          %>
+                          
+                          <div class="form-group">
+                            <label for="scheduleType<%= task.id %>">備份頻率</label>
+                            <select class="form-control" id="scheduleType<%= task.id %>" name="scheduleType">
+                              <option value="daily" <%= scheduleType === 'daily' ? 'selected' : '' %>>每天</option>
+                              <option value="weekly" <%= scheduleType === 'weekly' ? 'selected' : '' %>>每週</option>
+                              <option value="monthly" <%= scheduleType === 'monthly' ? 'selected' : '' %>>每月</option>
+                              <option value="custom" <%= scheduleType === 'custom' ? 'selected' : '' %>>自訂</option>
+                            </select>
+                          </div>
+                          
+                          <!-- 時間選擇器 -->
+                          <div class="form-group">
+                            <label for="backupTime<%= task.id %>">執行時間</label>
+                            <input type="time" class="form-control" id="backupTime<%= task.id %>" name="backupTime" value="<%= timeValue %>">
+                            <small class="form-text text-muted">
+                              選擇備份的執行時間（24小時制）
+                            </small>
+                          </div>
+                          
+                          <!-- 週幾選擇 -->
+                          <div class="form-group" id="weekdayGroup<%= task.id %>" style="display:<%= scheduleType === 'weekly' ? 'block' : 'none' %>;">
+                            <label for="weekday<%= task.id %>">執行日</label>
+                            <select class="form-control" id="weekday<%= task.id %>" name="weekday">
+                              <option value="0" <%= cronWeekday === '0' ? 'selected' : '' %>>週日</option>
+                              <option value="1" <%= cronWeekday === '1' ? 'selected' : '' %>>週一</option>
+                              <option value="2" <%= cronWeekday === '2' ? 'selected' : '' %>>週二</option>
+                              <option value="3" <%= cronWeekday === '3' ? 'selected' : '' %>>週三</option>
+                              <option value="4" <%= cronWeekday === '4' ? 'selected' : '' %>>週四</option>
+                              <option value="5" <%= cronWeekday === '5' ? 'selected' : '' %>>週五</option>
+                              <option value="6" <%= cronWeekday === '6' ? 'selected' : '' %>>週六</option>
+                            </select>
+                          </div>
+                          
+                          <!-- 月份日期選擇 -->
+                          <div class="form-group" id="monthDayGroup<%= task.id %>" style="display:<%= scheduleType === 'monthly' ? 'block' : 'none' %>;">
+                            <label for="monthDay<%= task.id %>">執行日期</label>
+                            <select class="form-control" id="monthDay<%= task.id %>" name="monthDay">
+                              <% for (let i = 1; i <= 28; i++) { %>
+                                <option value="<%= i %>" <%= cronDay === String(i) ? 'selected' : '' %>><%= i %> 號</option>
+                              <% } %>
+                              <option value="last" <%= cronDay === 'L' ? 'selected' : '' %>>每月最後一天</option>
+                            </select>
+                          </div>
+                          
+                          <!-- 自訂 Cron 表達式 -->
+                          <div class="form-group" id="customCronGroup<%= task.id %>" style="display:<%= scheduleType === 'custom' ? 'block' : 'none' %>;">
+                            <label for="customCron<%= task.id %>">自訂 Cron 表達式</label>
+                            <input type="text" class="form-control" id="customCron<%= task.id %>" name="customCron" value="<%= task.cronExpression %>" placeholder="例如：0 3 * * *">
+                            <small class="form-text text-muted">
+                              格式：分鐘 小時 日期 月份 星期 （0-59 0-23 1-31 1-12 0-6）
+                            </small>
+                          </div>
+                          
+                          <input type="hidden" id="cronExpression<%= task.id %>" name="cronExpression" value="<%= task.cronExpression %>">
+                          
+                          <div class="form-group">
+                            <label for="note<%= task.id %>">排程說明</label>
+                            <input type="text" class="form-control" id="note<%= task.id %>" name="note" value="<%= task.note %>">
+                          </div>
+                          <div class="form-group">
+                            <label>狀態</label>
+                            <div class="custom-control custom-switch">
+                              <input type="checkbox" class="custom-control-input" id="active<%= task.id %>" name="active" value="true" <%= task.active ? 'checked' : '' %>>
+                              <label class="custom-control-label" for="active<%= task.id %>">啟用排程</label>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                          <button type="submit" class="btn btn-primary">儲存變更</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% } else { %>
+            <div class="alert alert-info">
+              尚未建立任何排程
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- 備份資訊卡 -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0">備份資訊</h5>
+        </div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item d-flex justify-content-between">
+              <span>總備份數量</span>
+              <span class="badge badge-primary badge-pill"><%= backups.length %></span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>備份檔案總大小</span>
+              <span class="badge badge-info badge-pill">
+                <%= (backups.reduce((sum, b) => sum + b.size, 0) / (1024 * 1024)).toFixed(2) %> MB
+              </span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>活動排程數量</span>
+              <span class="badge badge-success badge-pill">
+                <%= tasks.filter(t => t.active).length %>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 自訂 Cron 表達式處理
+  document.addEventListener('DOMContentLoaded', function() {
+    // 新增排程類型切換處理
+    const scheduleTypeSelect = document.getElementById('scheduleType');
+    const weekdayGroup = document.getElementById('weekdayGroup');
+    const monthDayGroup = document.getElementById('monthDayGroup');
+    const customCronGroup = document.getElementById('customCronGroup');
+    const backupTimeInput = document.getElementById('backupTime');
+    const cronExpressionInput = document.getElementById('cronExpression');
+    const weekdaySelect = document.getElementById('weekday');
+    const monthDaySelect = document.getElementById('monthDay');
+    const customCronInput = document.getElementById('customCron');
+    
+    // 更新 Cron 表達式
+    function updateCronExpression() {
+      const scheduleType = scheduleTypeSelect.value;
+      const timeArray = backupTimeInput.value.split(':');
+      const hour = parseInt(timeArray[0]);
+      const minute = parseInt(timeArray[1]);
+      
+      let cronExpression = '';
+      
+      switch (scheduleType) {
+        case 'daily':
+          cronExpression = `${minute} ${hour} * * *`;
+          break;
+        case 'weekly':
+          const weekday = weekdaySelect.value;
+          cronExpression = `${minute} ${hour} * * ${weekday}`;
+          break;
+        case 'monthly':
+          const monthDay = monthDaySelect.value;
+          if (monthDay === 'last') {
+            // 月末使用 L 標記
+            cronExpression = `${minute} ${hour} L * *`;
+          } else {
+            cronExpression = `${minute} ${hour} ${monthDay} * *`;
+          }
+          break;
+        case 'custom':
+          cronExpression = customCronInput.value;
+          break;
+      }
+      
+      cronExpressionInput.value = cronExpression;
+    }
+    
+    // 頻率類型變更時更新界面
+    scheduleTypeSelect.addEventListener('change', function() {
+      // 隱藏所有選項
+      weekdayGroup.style.display = 'none';
+      monthDayGroup.style.display = 'none';
+      customCronGroup.style.display = 'none';
+      
+      // 根據選擇顯示不同選項
+      switch (this.value) {
+        case 'weekly':
+          weekdayGroup.style.display = 'block';
+          break;
+        case 'monthly':
+          monthDayGroup.style.display = 'block';
+          break;
+        case 'custom':
+          customCronGroup.style.display = 'block';
+          break;
+      }
+      
+      updateCronExpression();
+    });
+    
+    // 時間變更時更新 Cron 表達式
+    backupTimeInput.addEventListener('change', updateCronExpression);
+    weekdaySelect.addEventListener('change', updateCronExpression);
+    monthDaySelect.addEventListener('change', updateCronExpression);
+    customCronInput.addEventListener('input', function() {
+      if (scheduleTypeSelect.value === 'custom') {
+        cronExpressionInput.value = this.value;
+      }
+    });
+    
+    // 初始設定
+    updateCronExpression();
+    
+    // 為每個編輯排程模態框設置處理邏輯
+    setupEditModalHandlers();
+  });
+  
+  // 設置所有編輯排程模態框的處理邏輯
+  function setupEditModalHandlers() {
+    // 獲取頁面上所有的編輯任務模態框
+    const editModals = document.querySelectorAll('[id^="editTask"]');
+    
+    editModals.forEach(function(modal) {
+      const taskId = modal.id.replace('editTask', '');
+      
+      // 獲取該模態框內的元素
+      const scheduleTypeSelect = document.getElementById('scheduleType' + taskId);
+      const weekdayGroup = document.getElementById('weekdayGroup' + taskId);
+      const monthDayGroup = document.getElementById('monthDayGroup' + taskId);
+      const customCronGroup = document.getElementById('customCronGroup' + taskId);
+      const backupTimeInput = document.getElementById('backupTime' + taskId);
+      const cronExpressionInput = document.getElementById('cronExpression' + taskId);
+      const weekdaySelect = document.getElementById('weekday' + taskId);
+      const monthDaySelect = document.getElementById('monthDay' + taskId);
+      const customCronInput = document.getElementById('customCron' + taskId);
+      
+      if (!scheduleTypeSelect) return;
+      
+      // 更新 Cron 表達式
+      function updateTaskCronExpression() {
+        const scheduleType = scheduleTypeSelect.value;
+        const timeArray = backupTimeInput.value.split(':');
+        const hour = parseInt(timeArray[0]);
+        const minute = parseInt(timeArray[1]);
+        
+        let cronExpression = '';
+        
+        switch (scheduleType) {
+          case 'daily':
+            cronExpression = `${minute} ${hour} * * *`;
+            break;
+          case 'weekly':
+            const weekday = weekdaySelect.value;
+            cronExpression = `${minute} ${hour} * * ${weekday}`;
+            break;
+          case 'monthly':
+            const monthDay = monthDaySelect.value;
+            if (monthDay === 'last') {
+              cronExpression = `${minute} ${hour} L * *`;
+            } else {
+              cronExpression = `${minute} ${hour} ${monthDay} * *`;
+            }
+            break;
+          case 'custom':
+            cronExpression = customCronInput.value;
+            break;
+        }
+        
+        cronExpressionInput.value = cronExpression;
+      }
+      
+      // 頻率類型變更時更新界面
+      scheduleTypeSelect.addEventListener('change', function() {
+        // 隱藏所有選項
+        weekdayGroup.style.display = 'none';
+        monthDayGroup.style.display = 'none';
+        customCronGroup.style.display = 'none';
+        
+        // 根據選擇顯示不同選項
+        switch (this.value) {
+          case 'weekly':
+            weekdayGroup.style.display = 'block';
+            break;
+          case 'monthly':
+            monthDayGroup.style.display = 'block';
+            break;
+          case 'custom':
+            customCronGroup.style.display = 'block';
+            break;
+        }
+        
+        updateTaskCronExpression();
+      });
+      
+      // 時間變更時更新 Cron 表達式
+      backupTimeInput.addEventListener('change', updateTaskCronExpression);
+      weekdaySelect.addEventListener('change', updateTaskCronExpression);
+      monthDaySelect.addEventListener('change', updateTaskCronExpression);
+      customCronInput.addEventListener('input', function() {
+        if (scheduleTypeSelect.value === 'custom') {
+          cronExpressionInput.value = this.value;
+        }
+      });
+    });
+  }
+</script>
+
+<%- include('../../partials/footer') %> 
