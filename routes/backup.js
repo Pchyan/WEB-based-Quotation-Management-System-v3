@@ -5,6 +5,7 @@ const scheduler = require('../utils/scheduler');
 const { isAuthenticated, isAdmin } = require('../middlewares/auth');
 const path = require('path');
 const fs = require('fs');
+const cron = require('node-cron'); // 添加缺失的cron模組引入
 
 // 只允許管理員訪問備份功能
 router.use(isAuthenticated, isAdmin);
@@ -134,8 +135,38 @@ router.post('/schedule', (req, res) => {
       return res.redirect('/backup');
     }
     
-    // 使用傳入的 cronExpression (由前端生成)
-    let finalCronExpression = cronExpression;
+    // 根據前端提供的參數生成cron表達式
+    let finalCronExpression;
+    
+    if (customCron) {
+      // 如果提供了自定義cron表達式，使用它
+      finalCronExpression = customCron;
+    } else {
+      // 解析時間
+      const [hour, minute] = (backupTime || '00:00').split(':').map(Number);
+      
+      // 根據排程類型生成cron表達式
+      switch(scheduleType) {
+        case 'daily':
+          finalCronExpression = `${minute} ${hour} * * *`;
+          break;
+        case 'weekly':
+          finalCronExpression = `${minute} ${hour} * * ${weekday || 0}`;
+          break;
+        case 'monthly':
+          finalCronExpression = `${minute} ${hour} ${monthDay || 1} * *`;
+          break;
+        default:
+          // 如果沒有指定類型，使用傳入的cronExpression或默認每天備份
+          finalCronExpression = cronExpression || scheduler.constructor.SCHEDULES.EVERY_DAY;
+      }
+    }
+    
+    // 驗證生成的cron表達式
+    if (!cron.validate(finalCronExpression)) {
+      req.flash('error', `無效的cron表達式: ${finalCronExpression}`);
+      return res.redirect('/backup');
+    }
     
     // 建立排程任務
     const success = scheduler.scheduleTask(id, finalCronExpression, 'backup', note);
@@ -171,8 +202,38 @@ router.post('/schedule/:id/update', (req, res) => {
       customCron
     } = req.body;
     
-    // 使用傳入的 cronExpression (由前端生成)
-    let finalCronExpression = cronExpression;
+    // 根據前端提供的參數生成cron表達式
+    let finalCronExpression;
+    
+    if (customCron) {
+      // 如果提供了自定義cron表達式，使用它
+      finalCronExpression = customCron;
+    } else {
+      // 解析時間
+      const [hour, minute] = (backupTime || '00:00').split(':').map(Number);
+      
+      // 根據排程類型生成cron表達式
+      switch(scheduleType) {
+        case 'daily':
+          finalCronExpression = `${minute} ${hour} * * *`;
+          break;
+        case 'weekly':
+          finalCronExpression = `${minute} ${hour} * * ${weekday || 0}`;
+          break;
+        case 'monthly':
+          finalCronExpression = `${minute} ${hour} ${monthDay || 1} * *`;
+          break;
+        default:
+          // 如果沒有指定類型，使用傳入的cronExpression或默認每天備份
+          finalCronExpression = cronExpression || scheduler.constructor.SCHEDULES.EVERY_DAY;
+      }
+    }
+    
+    // 驗證生成的cron表達式
+    if (!cron.validate(finalCronExpression)) {
+      req.flash('error', `無效的cron表達式: ${finalCronExpression}`);
+      return res.redirect('/backup');
+    }
     
     // 更新排程任務
     const success = scheduler.updateTask(id, {
@@ -243,4 +304,4 @@ router.post('/schedule/:id/run-now', async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

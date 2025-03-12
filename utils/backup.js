@@ -58,8 +58,23 @@ class DatabaseBackup {
           resolve(backupFilePath);
         });
 
+        // 處理輸出流錯誤
+        output.on('error', (err) => {
+          reject(err);
+        });
+
         // 處理錯誤
         archive.on('error', (err) => {
+          // 確保關閉輸出流
+          try {
+            output.close();
+            // 如果備份文件已創建但不完整，刪除它
+            if (fs.existsSync(backupFilePath)) {
+              fs.unlinkSync(backupFilePath);
+            }
+          } catch (closeErr) {
+            console.error('關閉輸出流錯誤:', closeErr);
+          }
           reject(err);
         });
 
@@ -227,4 +242,4 @@ class DatabaseBackup {
   }
 }
 
-module.exports = new DatabaseBackup(); 
+module.exports = new DatabaseBackup();

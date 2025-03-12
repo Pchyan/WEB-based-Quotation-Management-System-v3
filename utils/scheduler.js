@@ -130,22 +130,11 @@ class Scheduler {
         note,
         active: true,
         created: new Date().toISOString(),
-        lastRun: null,
-        job: cron.schedule(cronExpression, async () => {
-          console.log(`執行排程任務: ${id}`);
-          task.lastRun = new Date().toISOString();
-
-          try {
-            await executeFunction(task);
-            console.log(`任務 ${id} 執行完成`);
-          } catch (err) {
-            console.error(`任務 ${id} 執行出錯:`, err);
-          }
-
-          // 更新配置
-          this.saveConfig();
-        })
+        lastRun: null
       };
+
+      // 設置任務的job
+      this._scheduleTaskJob(task);
 
       // 將任務添加到集合中
       this.tasks.set(id, task);
@@ -201,21 +190,7 @@ class Scheduler {
       if (needRestart) {
         this.stopTask(id);
         if (task.active) {
-          const executeFunction = this._createExecuteFunction(task.type);
-          task.job = cron.schedule(task.cronExpression, async () => {
-            console.log(`執行排程任務: ${id}`);
-            task.lastRun = new Date().toISOString();
-
-            try {
-              await executeFunction(task);
-              console.log(`任務 ${id} 執行完成`);
-            } catch (err) {
-              console.error(`任務 ${id} 執行出錯:`, err);
-            }
-
-            // 更新配置
-            this.saveConfig();
-          });
+          this._scheduleTaskJob(task);
         }
       }
 
@@ -230,34 +205,7 @@ class Scheduler {
   }
 
   /**
-   * 停止任務
-   * @param {string} id 任務ID
-   * @returns {boolean} 是否成功
-   */
-  stopTask(id) {
-    try {
-      if (!this.tasks.has(id)) {
-        console.error(`任務不存在: ${id}`);
-        return false;
-      }
-
-      const task = this.tasks.get(id);
-      if (task.job) {
-        task.job.stop();
-      }
-
-      task.active = false;
-      this.saveConfig();
-
-      return true;
-    } catch (err) {
-      console.error('停止任務錯誤:', err);
-      return false;
-    }
-  }
-
-  /**
-   * 刪除任務
+   * 停止並刪除任務
    * @param {string} id 任務ID
    * @returns {boolean} 是否成功
    */
@@ -269,20 +217,43 @@ class Scheduler {
       }
 
       // 停止任務
-      const task = this.tasks.get(id);
-      if (task.job) {
-        task.job.stop();
-      }
+      this.stopTask(id);
 
       // 從集合中移除
       this.tasks.delete(id);
-      
+
       // 保存配置
       this.saveConfig();
 
+      console.log(`已刪除任務 ${id}`);
       return true;
     } catch (err) {
       console.error('刪除任務錯誤:', err);
+      return false;
+    }
+  }
+
+  /**
+   * 停止任務
+   * @param {string} id 任務ID
+   * @returns {boolean} 是否成功
+   */
+  stopTask(id) {
+    try {
+      const task = this.tasks.get(id);
+      if (!task) {
+        console.error(`任務不存在: ${id}`);
+        return false;
+      }
+
+      if (task.job) {
+        task.job.stop();
+        task.job = null;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('停止任務錯誤:', err);
       return false;
     }
   }
@@ -294,29 +265,30 @@ class Scheduler {
    */
   async runTaskNow(id) {
     try {
-      if (!this.tasks.has(id)) {
+      const task = this.tasks.get(id);
+      if (!task) {
         console.error(`任務不存在: ${id}`);
         return false;
       }
 
-      const task = this.tasks.get(id);
       const executeFunction = this._createExecuteFunction(task.type);
-      
       if (!executeFunction) {
         console.error(`不支援的任務類型: ${task.type}`);
         return false;
       }
 
+      console.log(`手動執行任務: ${id}`);
       task.lastRun = new Date().toISOString();
-      
+
       await executeFunction(task);
-      
-      // 保存配置
+      console.log(`任務 ${id} 執行完成`);
+
+      // 更新配置
       this.saveConfig();
-      
+
       return true;
     } catch (err) {
-      console.error('立即執行任務錯誤:', err);
+      console.error(`任務 ${id} 執行出錯:`, err);
       return false;
     }
   }
@@ -354,6 +326,29 @@ class Scheduler {
   }
 
   /**
+   * 為任務設置排程作業
+   * @param {Object} task 任務對象
+   * @private
+   */
+  _scheduleTaskJob(task) {
+    const executeFunction = this._createExecuteFunction(task.type);
+    task.job = cron.schedule(task.cronExpression, async () => {
+      console.log(`執行排程任務: ${task.id}`);
+      task.lastRun = new Date().toISOString();
+
+      try {
+        await executeFunction(task);
+        console.log(`任務 ${task.id} 執行完成`);
+      } catch (err) {
+        console.error(`任務 ${task.id} 執行出錯:`, err);
+      }
+
+      // 更新配置
+      this.saveConfig();
+    });
+  }
+
+  /**
    * 解釋cron表達式為人類可讀的文字
    * @param {string} expression cron表達式
    * @returns {string} 人類可讀的描述
@@ -381,7 +376,7 @@ class Scheduler {
     } else if (minute === '0' && hour === '0' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
       return '每天凌晨';
     } else if (minute === '0' && hour === '0' && dayOfMonth === '*' && month === '*' && dayOfWeek === '0') {
-      return '每週日凌晨';
+      return '每週凌晨';
     } else if (minute === '0' && hour === '0' && dayOfMonth === '1' && month === '*' && dayOfWeek === '*') {
       return '每月1號凌晨';
     }
@@ -399,4 +394,4 @@ Scheduler.SCHEDULES = {
   EVERY_MONTH: '0 0 1 * *'
 };
 
-module.exports = new Scheduler(); 
+module.exports = new Scheduler();

@@ -448,23 +448,26 @@ router.post('/delete/:id', isAuthenticated, async (req, res) => {
 });
 
 // 搜尋報價單
+// 搜尋報價單
 router.get('/search', isAuthenticated, async (req, res) => {
   try {
-    const query = req.query.q || '';
-    const status = req.query.status || '';
-    const fromDate = req.query.fromDate || '';
-    const toDate = req.query.toDate || '';
+    const { q: query, status, customer, startDate, endDate, page = 1, limit = 10 } = req.query;
     
-    const quotes = await Quote.search(query, status, fromDate, toDate);
+    const quotes = await Quote.search(query, status, startDate, endDate);
     
+    // 修改渲染部分，確保傳遞所有可能需要的參數
     res.render('pages/quotes/search', {
-      title: '搜尋報價單',
-      active: 'quotes',
-      quotes,
-      searchParams: { query, status, fromDate, toDate }
+      quotes: quotes,
+      query: query || '',  // 確保 query 有值，即使是空字串
+      status: status || '',
+      customer: customer || '',
+      startDate: startDate || '',
+      endDate: endDate || '',
+      title: '報價單搜尋結果',
+      active: 'quotes'
     });
-  } catch (err) {
-    console.error('搜尋報價單錯誤:', err);
+  } catch (error) {
+    console.error('搜尋報價單時發生錯誤:', error);
     res.status(500).render('pages/error', {
       title: '伺服器錯誤',
       message: '搜尋報價單時發生錯誤'
@@ -718,4 +721,4 @@ router.get('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

@@ -95,25 +95,52 @@ class Quote {
   }
 
   // 搜尋報價單
-  static search(searchTerm) {
+  static search(searchTerm, status, startDate, endDate) {
     return new Promise((resolve, reject) => {
       const db = getDb();
-      const searchParam = `%${searchTerm}%`;
-      db.all(
-        `SELECT q.*, c.name as customer_name, u.username as created_by_username
-         FROM quotes q
-         JOIN customers c ON q.customer_id = c.id
-         JOIN users u ON q.created_by = u.id
-         WHERE q.quote_number LIKE ? OR q.title LIKE ? OR c.name LIKE ?
-         ORDER BY q.issue_date DESC`,
-        [searchParam, searchParam, searchParam],
-        (err, rows) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(rows);
+      let sql = `
+        SELECT q.*, c.name as customer_name, u.username as created_by_username
+        FROM quotes q
+        JOIN customers c ON q.customer_id = c.id
+        JOIN users u ON q.created_by = u.id
+        WHERE 1=1
+      `;
+      
+      const params = [];
+      
+      // 添加關鍵字搜尋條件
+      if (searchTerm) {
+        const searchParam = `%${searchTerm}%`;
+        sql += ` AND (q.quote_number LIKE ? OR q.title LIKE ? OR c.name LIKE ?)`;
+        params.push(searchParam, searchParam, searchParam);
+      }
+      
+      // 添加狀態篩選條件
+      if (status) {
+        sql += ` AND q.status = ?`;
+        params.push(status);
+      }
+      
+      // 添加日期範圍篩選條件
+      if (startDate) {
+        sql += ` AND q.issue_date >= ?`;
+        params.push(startDate);
+      }
+      
+      if (endDate) {
+        sql += ` AND q.issue_date <= ?`;
+        params.push(endDate);
+      }
+      
+      sql += ` ORDER BY q.issue_date DESC`;
+      
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          console.error('搜尋報價單錯誤:', err);
+          return reject(err);
         }
-      );
+        resolve(rows);
+      });
     });
   }
 
@@ -991,4 +1018,4 @@ class Quote {
   }
 }
 
-module.exports = Quote; 
+module.exports = Quote;
