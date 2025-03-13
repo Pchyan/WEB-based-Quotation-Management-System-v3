@@ -1,4 +1,3 @@
-
 <%- include('../../partials/header') %>
 <%- include('../../partials/navbar') %>
 
@@ -165,20 +164,22 @@
   document.addEventListener('DOMContentLoaded', function() {
     // 請在此處添加 Chart.js 圖表初始化
     
-    // 在實際應用中，這些數據應該由後端提供
-    const productData = [
-      <% if (locals.productStats && productStats.length > 0) { %>
-        <% productStats.slice(0, 10).forEach(product => { %>
-          {
-            name: "<%= product.name %>",
-            totalAmount: <%= product.totalAmount %>,
-            totalQuantity: <%= product.totalQuantity %>,
-            acceptedAmount: <%= product.acceptedAmount %>,
-            acceptedQuantity: <%= product.acceptedQuantity %>
-          },
-        <% }); %>
-      <% } %>
-    ];
+    // 準備圖表數據
+    const productNames = [];
+    const amounts = [];
+    const acceptedAmounts = [];
+    const quantities = [];
+    const acceptedQuantities = [];
+    
+    <% if (locals.productStats && productStats.length > 0) { %>
+      <% productStats.slice(0, 10).forEach(product => { %>
+        productNames.push("<%= product.name %>");
+        amounts.push(<%= product.amount || 0 %>);
+        acceptedAmounts.push(<%= product.acceptedAmount || 0 %>);
+        quantities.push(<%= product.quantity || 0 %>);
+        acceptedQuantities.push(<%= product.acceptedQuantity || 0 %>);
+      <% }); %>
+    <% } %>
     
     // 生成隨機顏色
     function generateColors(count) {
@@ -191,27 +192,24 @@
     }
     
     // 繪製銷售金額圖表
-    if (productData.length > 0) {
-      const salesLabels = productData.map(product => product.name);
-      const salesData = productData.map(product => product.totalAmount);
-      const acceptedSalesData = productData.map(product => product.acceptedAmount);
-      const salesColors = generateColors(productData.length);
+    if (productNames.length > 0) {
+      const salesColors = generateColors(productNames.length);
       
       new Chart(document.getElementById('salesChart'), {
         type: 'bar',
         data: {
-          labels: salesLabels,
+          labels: productNames,
           datasets: [
             {
               label: '總銷售金額',
-              data: salesData,
+              data: amounts,
               backgroundColor: salesColors,
               borderColor: salesColors.map(color => color.replace('0.8', '1')),
               borderWidth: 1
             },
             {
               label: '已接受金額',
-              data: acceptedSalesData,
+              data: acceptedAmounts,
               backgroundColor: 'rgba(60, 179, 113, 0.8)',
               borderColor: 'rgba(60, 179, 113, 1)',
               borderWidth: 1
@@ -235,28 +233,25 @@
       });
       
       // 繪製銷售數量圖表
-      const quantityLabels = productData.map(product => product.name);
-      const quantityData = productData.map(product => product.totalQuantity);
-      const acceptedQuantityData = productData.map(product => product.acceptedQuantity);
-      const quantityColors = generateColors(productData.length);
+      const quantityColors = generateColors(productNames.length);
       
       new Chart(document.getElementById('quantityChart'), {
         type: 'bar',
         data: {
-          labels: quantityLabels,
+          labels: productNames,
           datasets: [
             {
               label: '總銷售數量',
-              data: quantityData,
+              data: quantities,
               backgroundColor: quantityColors,
               borderColor: quantityColors.map(color => color.replace('0.8', '1')),
               borderWidth: 1
             },
             {
               label: '已接受數量',
-              data: acceptedQuantityData,
-              backgroundColor: 'rgba(75, 192, 192, 0.8)',
-              borderColor: 'rgba(75, 192, 192, 1)',
+              data: acceptedQuantities,
+              backgroundColor: 'rgba(60, 179, 113, 0.8)',
+              borderColor: 'rgba(60, 179, 113, 1)',
               borderWidth: 1
             }
           ]
@@ -277,11 +272,6 @@
   // 列印報表
   function printReport() {
     window.print();
-  }
-  
-  // 匯出 Excel（實際應用中應連接到後端 API）
-  function exportToExcel() {
-    alert('此功能需要後端支援，將產生 Excel 檔案下載');
   }
 </script>
 

@@ -109,21 +109,21 @@
                   <td>
                     <div class="btn-group">
                       <a href="/quotes/<%= quote.id %>" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-eye"></i>
+                        <i class="bi bi-eye"></i> 查看
                       </a>
                       <% if (quote.status === 'draft') { %>
                         <a href="/quotes/edit/<%= quote.id %>" class="btn btn-sm btn-outline-primary">
-                          <i class="bi bi-pencil"></i>
+                          <i class="bi bi-pencil"></i> 編輯
                         </a>
                       <% } %>
                       <a href="/quotes/copy/<%= quote.id %>" class="btn btn-sm btn-outline-info">
-                        <i class="bi bi-copy"></i>
+                        <i class="bi bi-copy"></i> 複製
                       </a>
                       <button type="button" class="btn btn-sm btn-outline-danger delete-btn" 
                               data-id="<%= quote.id %>" 
                               data-bs-toggle="modal" 
                               data-bs-target="#deleteModal">
-                        <i class="bi bi-trash"></i>
+                        <i class="bi bi-trash"></i> 刪除
                       </button>
                     </div>
                   </td>

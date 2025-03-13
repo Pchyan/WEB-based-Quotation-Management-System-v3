@@ -79,10 +79,10 @@
                 <td>
                   <div class="btn-group">
                     <a href="/products/<%= product.id %>" class="btn btn-sm btn-outline-secondary">
-                      <i class="bi bi-eye"></i>
+                      <i class="bi bi-eye"></i> 查看
                     </a>
                     <a href="/products/edit/<%= product.id %>" class="btn btn-sm btn-outline-primary">
-                      <i class="bi bi-pencil"></i>
+                      <i class="bi bi-pencil"></i> 編輯
                     </a>
                     <form action="/products/delete/<%= product.id %>" method="POST" class="d-inline" 
                           onsubmit="return confirm('確定要刪除產品「<%= product.name %>」嗎？此操作無法撤銷。');">
