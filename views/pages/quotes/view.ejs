@@ -17,9 +17,12 @@
         <a href="/quotes/edit/<%= quote.id %>" class="btn btn-outline-primary">
           <i class="bi bi-pencil"></i> 編輯
         </a>
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteQuoteModal">
-          <i class="bi bi-trash"></i> 刪除
-        </button>
+        <form action="/quotes/delete/<%= quote.id %>" method="POST" class="d-inline" 
+              onsubmit="return confirm('確定要刪除此報價單嗎？此操作無法撤銷。');">
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash"></i> 刪除
+          </button>
+        </form>
       </div>
       <a href="/quotes" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> 返回列表
@@ -232,27 +235,6 @@
           </div>
         </div>
       <% } %>
-    </div>
-  </div>
-</div>
-
-<!-- 刪除報價確認模態框 -->
-<div class="modal fade" id="deleteQuoteModal" tabindex="-1" aria-labelledby="deleteQuoteModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="deleteQuoteModalLabel">確認刪除</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        確定要刪除報價單 #<%= quote.quote_number || quote.id %> 嗎？此操作無法撤銷。
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-        <form action="/quotes/delete/<%= quote.id %>" method="POST">
-          <button type="submit" class="btn btn-danger">確認刪除</button>
-        </form>
-      </div>
     </div>
   </div>
 </div>

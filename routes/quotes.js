@@ -650,19 +650,47 @@ router.post('/status/:id', isAuthenticated, async (req, res) => {
 // 刪除報價單
 router.post('/delete/:id', isAuthenticated, async (req, res) => {
   try {
+    console.log(`嘗試刪除報價單 ID: ${req.params.id}, 用戶: ${req.session.user ? req.session.user.username : '未知'}`);
+    
     // 檢查報價單是否存在
     const quote = await Quote.findById(req.params.id);
     if (!quote) {
-      return res.status(404).json({ success: false, message: '找不到報價單' });
+      console.error(`找不到要刪除的報價單: ${req.params.id}`);
+      // 根據請求類型返回不同格式的錯誤響應
+      if (req.headers['content-type'] === 'application/json') {
+        return res.status(404).json({ success: false, message: '找不到報價單' });
+      } else {
+        req.flash('error', '找不到報價單');
+        return res.redirect('/quotes');
+      }
     }
 
-    // 刪除報價單
-    await Quote.delete(req.params.id);
+    // 刪除報價單，傳遞當前用戶ID
+    console.log(`開始刪除報價單: ${req.params.id}`);
+    await Quote.delete(req.params.id, req.session.user ? req.session.user.id : null);
     
-    res.json({ success: true });
+    console.log(`報價單刪除成功: ${req.params.id}`);
+    
+    // 根據請求類型返回不同格式的成功響應
+    if (req.headers['content-type'] === 'application/json') {
+      return res.json({ success: true });
+    } else {
+      req.flash('success', '報價單已成功刪除');
+      return res.redirect('/quotes');
+    }
   } catch (err) {
-    console.error('刪除報價單錯誤:', err);
-    res.status(500).json({ success: false, message: err.message || '刪除報價單時發生錯誤' });
+    console.error('刪除報價單錯誤', err);
+    
+    // 根據請求類型返回不同格式的錯誤響應
+    if (req.headers['content-type'] === 'application/json') {
+      return res.status(500).json({ 
+        success: false, 
+        message: err.message || '刪除報價單操作失敗' 
+      });
+    } else {
+      req.flash('error', `刪除報價單失敗: ${err.message || '未知錯誤'}`);
+      return res.redirect('/quotes');
+    }
   }
 });
 

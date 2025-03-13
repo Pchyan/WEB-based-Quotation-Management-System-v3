@@ -614,39 +614,41 @@ class Quote {
     return new Promise((resolve, reject) => {
       const db = getDb();
       
-      // 開始交易
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
+      console.log(`[嚴重錯誤排查] 開始刪除報價單 ID: ${id}`);
+      
+      // 不使用事務，改用依序刪除並確保成功
+      // 首先刪除報價單項目
+      db.run('DELETE FROM quote_items WHERE quote_id = ?', [id], function(err) {
+        if (err) {
+          console.error('[嚴重錯誤排查] 刪除報價單項目失敗:', err);
+          return reject(err);
+        }
         
-        // 刪除報價單項目
-        db.run('DELETE FROM quote_items WHERE quote_id = ?', [id], function(err) {
+        console.log(`[嚴重錯誤排查] 成功刪除報價單項目，影響行數: ${this.changes}`);
+        
+        // 然後刪除報價單歷史
+        db.run('DELETE FROM quote_history WHERE quote_id = ?', [id], function(err) {
           if (err) {
-            db.run('ROLLBACK');
+            console.error('[嚴重錯誤排查] 刪除報價單歷史失敗:', err);
             return reject(err);
           }
           
-          // 刪除報價單歷史
-          db.run('DELETE FROM quote_history WHERE quote_id = ?', [id], function(err) {
+          console.log(`[嚴重錯誤排查] 成功刪除報價單歷史，影響行數: ${this.changes}`);
+          
+          // 最後刪除報價單本身
+          db.run('DELETE FROM quotes WHERE id = ?', [id], function(err) {
             if (err) {
-              db.run('ROLLBACK');
+              console.error('[嚴重錯誤排查] 刪除報價單失敗:', err);
               return reject(err);
             }
             
-            // 刪除報價單
-            db.run('DELETE FROM quotes WHERE id = ?', [id], function(err) {
-              if (err) {
-                db.run('ROLLBACK');
-                return reject(err);
-              }
-              
-              if (this.changes === 0) {
-                db.run('ROLLBACK');
-                return reject(new Error('報價單不存在'));
-              }
-              
-              db.run('COMMIT');
-              resolve(true);
-            });
+            if (this.changes === 0) {
+              console.error('[嚴重錯誤排查] 找不到報價單或刪除失敗，影響行數為0');
+              return reject(new Error('報價單不存在或無法刪除'));
+            }
+            
+            console.log(`[嚴重錯誤排查] 成功刪除報價單，影響行數: ${this.changes}`);
+            resolve(true);
           });
         });
       });

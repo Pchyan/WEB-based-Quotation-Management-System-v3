@@ -227,32 +227,55 @@ class Product {
     });
   }
 
-  // 刪除產品
+  /**
+   * 刪除產品
+   * @param {number} id - 產品ID
+   * @returns {Promise<boolean>} - 是否刪除成功
+   */
   static delete(id) {
     return new Promise((resolve, reject) => {
-      const db = getDb();
+      console.log(`正在刪除產品，ID: ${id}`);
       
-      // 檢查是否有關聯的報價單項目
-      db.get('SELECT COUNT(*) as count FROM quote_items WHERE product_id = ?', [id], (err, row) => {
+      // 先確認產品存在
+      const db = getDb();
+      db.get('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
         if (err) {
-          return reject(err);
+          console.error('查詢產品失敗:', err);
+          return reject(new Error('查詢產品時發生錯誤'));
         }
         
-        if (row.count > 0) {
-          return reject(new Error('無法刪除產品，因為有關聯的報價單項目存在'));
+        if (!product) {
+          console.error(`找不到ID為 ${id} 的產品`);
+          return reject(new Error('找不到該產品'));
         }
         
-        // 執行刪除
-        db.run('DELETE FROM products WHERE id = ?', [id], function(err) {
+        // 檢查產品是否已被使用在報價單項目中
+        db.all('SELECT * FROM quote_items WHERE product_id = ? LIMIT 1', [id], (err, items) => {
           if (err) {
-            return reject(err);
+            console.error('檢查產品關聯項目失敗:', err);
+            return reject(new Error('檢查產品使用情況時發生錯誤'));
           }
           
-          if (this.changes === 0) {
-            return reject(new Error('產品不存在'));
+          if (items && items.length > 0) {
+            console.error(`產品 ${id} 已被使用在報價單項目中，無法刪除`);
+            return reject(new Error('產品已被使用在報價單中，無法刪除'));
           }
           
-          resolve(true);
+          // 執行刪除操作
+          db.run('DELETE FROM products WHERE id = ?', [id], function(err) {
+            if (err) {
+              console.error('刪除產品錯誤:', err);
+              return reject(new Error('刪除產品時發生錯誤'));
+            }
+            
+            if (this.changes === 0) {
+              console.error(`刪除產品 ${id} 失敗，沒有記錄被刪除`);
+              return reject(new Error('刪除產品失敗，請稍後再試'));
+            }
+            
+            console.log(`產品 ${id} 刪除成功，影響行數: ${this.changes}`);
+            resolve(true);
+          });
         });
       });
     });
@@ -444,6 +467,32 @@ class Product {
           });
         });
       });
+    });
+  }
+
+  /**
+   * 獲取使用此產品的報價單
+   * @param {number} productId - 產品ID
+   * @returns {Promise<Array>} - 報價單數組
+   */
+  static getQuotes(productId) {
+    return new Promise((resolve, reject) => {
+      const db = getDb();
+      db.all(
+        `SELECT q.* FROM quotes q
+         JOIN quote_items qi ON q.id = qi.quote_id
+         WHERE qi.product_id = ?
+         GROUP BY q.id
+         ORDER BY q.issue_date DESC`,
+        [productId],
+        (err, rows) => {
+          if (err) {
+            console.error('獲取產品關聯報價單失敗:', err);
+            return reject(err);
+          }
+          resolve(rows);
+        }
+      );
     });
   }
 }

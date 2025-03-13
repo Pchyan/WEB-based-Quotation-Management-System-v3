@@ -270,19 +270,40 @@ router.post('/edit/:id', [
 // 刪除產品
 router.post('/delete/:id', isAuthenticated, async (req, res) => {
   try {
+    console.log(`嘗試刪除產品 ID: ${req.params.id}, 用戶: ${req.session.user ? req.session.user.username : '未知'}`);
+    
     // 檢查產品是否存在
     const product = await Product.findById(req.params.id);
     if (!product) {
-      return res.status(404).json({ success: false, message: '找不到產品' });
+      console.error(`找不到要刪除的產品: ${req.params.id}`);
+      req.flash('error', '找不到產品');
+      return res.redirect('/products');
+    }
+
+    try {
+      // 檢查產品是否被報價單使用
+      const quotes = await Product.getQuotes(req.params.id);
+      if (quotes && quotes.length > 0) {
+        console.error(`產品 ${req.params.id} 被 ${quotes.length} 個報價單使用，無法刪除`);
+        req.flash('error', '無法刪除產品，因為有報價單使用了此產品。請先移除相關報價單項目。');
+        return res.redirect('/products');
+      }
+    } catch (quoteErr) {
+      console.error('檢查產品關聯報價單時發生錯誤:', quoteErr);
+      // 即使檢查報價單出錯，也繼續嘗試刪除操作
     }
 
     // 刪除產品
+    console.log(`開始刪除產品: ${req.params.id}`);
     await Product.delete(req.params.id);
-
-    res.json({ success: true });
+    
+    console.log(`產品刪除成功: ${req.params.id}`);
+    req.flash('success', '產品已成功刪除');
+    return res.redirect('/products');
   } catch (err) {
-    console.error('刪除產品錯誤:', err);
-    res.status(500).json({ success: false, message: err.message || '刪除產品時發生錯誤' });
+    console.error('刪除產品錯誤', err);
+    req.flash('error', `刪除產品失敗: ${err.message || '未知錯誤'}`);
+    return res.redirect('/products');
   }
 });
 

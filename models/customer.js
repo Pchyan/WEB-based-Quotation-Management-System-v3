@@ -180,29 +180,49 @@ class Customer {
   // 刪除客戶
   static delete(id) {
     return new Promise((resolve, reject) => {
+      console.log(`正在刪除客戶，ID: ${id}`);
+      
       const db = getDb();
       
-      // 檢查是否有關聯的報價單
-      db.get('SELECT COUNT(*) as count FROM quotes WHERE customer_id = ?', [id], (err, row) => {
+      // 先確認客戶存在
+      db.get('SELECT * FROM customers WHERE id = ?', [id], (err, customer) => {
         if (err) {
-          return reject(err);
+          console.error('查詢客戶失敗:', err);
+          return reject(new Error('查詢客戶時發生錯誤'));
         }
         
-        if (row.count > 0) {
-          return reject(new Error('無法刪除客戶，因為有關聯的報價單存在'));
+        if (!customer) {
+          console.error(`找不到ID為 ${id} 的客戶`);
+          return reject(new Error('找不到該客戶'));
         }
         
-        // 執行刪除
-        db.run('DELETE FROM customers WHERE id = ?', [id], function(err) {
+        // 檢查客戶是否有關聯的報價單
+        db.all('SELECT * FROM quotes WHERE customer_id = ? LIMIT 1', [id], (err, quotes) => {
           if (err) {
-            return reject(err);
+            console.error('檢查客戶關聯報價單失敗:', err);
+            return reject(new Error('檢查客戶使用情況時發生錯誤'));
           }
           
-          if (this.changes === 0) {
-            return reject(new Error('客戶不存在'));
+          if (quotes && quotes.length > 0) {
+            console.error(`客戶 ${id} 有關聯的報價單，無法刪除`);
+            return reject(new Error('客戶有關聯的報價單，無法刪除'));
           }
           
-          resolve(true);
+          // 執行刪除操作
+          db.run('DELETE FROM customers WHERE id = ?', [id], function(err) {
+            if (err) {
+              console.error('刪除客戶錯誤:', err);
+              return reject(new Error('刪除客戶時發生錯誤'));
+            }
+            
+            if (this.changes === 0) {
+              console.error(`刪除客戶 ${id} 失敗，沒有記錄被刪除`);
+              return reject(new Error('刪除客戶失敗，請稍後再試'));
+            }
+            
+            console.log(`客戶 ${id} 刪除成功，影響行數: ${this.changes}`);
+            resolve(true);
+          });
         });
       });
     });

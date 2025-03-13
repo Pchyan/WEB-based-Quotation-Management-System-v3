@@ -114,15 +114,15 @@ router.get('/sales', isAuthenticated, async (req, res) => {
         
         if (!monthlyData[periodKey]) {
           monthlyData[periodKey] = {
-            count: 0,
-            amount: 0,
-            accepted: 0
-          };
-        }
-        
+          count: 0,
+          amount: 0,
+          accepted: 0
+        };
+      }
+      
         monthlyData[periodKey].count++;
         monthlyData[periodKey].amount += parseFloat(quote.total) || 0;
-        if (quote.status === 'accepted') {
+      if (quote.status === 'accepted') {
           monthlyData[periodKey].accepted++;
         }
       } catch (err) {
@@ -513,7 +513,7 @@ router.get('/customers/export', isAuthenticated, async (req, res) => {
       };
     });
     
-    // 整理報價單數據
+    // 處理報價單數據
     quotes.forEach(quote => {
       const customerId = (quote.customer_id || quote.customerId || '').toString();
       if (customerId && customerMap[customerId]) {
@@ -624,122 +624,110 @@ router.get('/customers/export', isAuthenticated, async (req, res) => {
 // 產品銷售報表
 router.get('/products', isAuthenticated, async (req, res) => {
   try {
-    // 從請求中獲取日期範圍、類別和排序參數，支持兩種參數名稱
-    let { startDate, endDate, fromDate, toDate, category, sortBy, sort } = req.query;
+    // 獲取查詢參數
+    const { fromDate, toDate, category, sortBy, startDate, endDate } = req.query;
     
-    // 如果沒有指定日期範圍，默認顯示過去3個月的數據
+    // 設置默認日期範圍（如果未提供）
     const today = new Date();
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(today.getMonth() - 3);
+    const defaultEndDate = new Date(today);
+    const defaultStartDate = new Date(today);
+    defaultStartDate.setMonth(today.getMonth() - 3); // 默認顯示最近三個月
     
-    // 優先使用 startDate/endDate，如果沒有則使用 fromDate/toDate
-    const queryStartDate = startDate ? new Date(startDate) : (fromDate ? new Date(fromDate) : threeMonthsAgo);
-    const queryEndDate = endDate ? new Date(endDate) : (toDate ? new Date(toDate) : today);
+    const queryStartDate = startDate || fromDate ? new Date(startDate || fromDate) : defaultStartDate;
+    const queryEndDate = endDate || toDate ? new Date(endDate || toDate) : defaultEndDate;
+    const categoryId = category && category !== 'all' ? parseInt(category) : null;
     
-    // 兼容舊的參數名稱 sort，並默認按總額排序
-    sortBy = sortBy || sort || 'amount';
+    console.log(`產品報表 - 日期範圍: ${queryStartDate.toISOString()} 到 ${queryEndDate.toISOString()}, 類別: ${categoryId ? categoryId : '全部'}, 排序方式: ${sortBy || 'amount'}`);
     
-    console.log(`產品報表 - 日期範圍: ${queryStartDate.toISOString()} 到 ${queryEndDate.toISOString()}, 類別: ${category || '全部'}, 排序方式: ${sortBy}`);
-    
-    // 獲取所有產品 - 根據類別過濾
-    let products;
-    if (category && category !== 'all') {
-      products = await Product.getByCategoryId(category);
+    // 獲取所有產品或根據類別篩選
+    let products = [];
+    if (categoryId) {
+      products = await Product.getByCategoryId(categoryId);
     } else {
       products = await Product.getAll();
     }
+    
     console.log(`產品報表 - 獲取到 ${products.length} 個產品`);
     
-    // 獲取該日期範圍內的所有報價單
+    // 獲取日期範圍內的報價單
     const quotes = await Quote.getReportData(queryStartDate, queryEndDate);
     console.log(`產品報表 - 獲取到 ${quotes.length} 筆報價單數據`);
     
-    // 收集所有報價單項目
-    const allItems = [];
+    // 整理產品統計數據
+    const productStats = [];
+    const productMap = {};
+    
+    // 先建立產品映射
+    products.forEach(product => {
+      const productId = product.id.toString();
+      productMap[productId] = {
+        id: product.id,
+        name: product.name || '',
+        sku: product.sku || '',
+        category: product.category_name || product.categoryName || '',
+        price: parseFloat(product.price || 0),
+        quantity: 0,
+        amount: 0,
+        acceptedQuantity: 0,
+        acceptedAmount: 0,
+        conversionRate: 0
+      };
+    });
+    
+    // 處理每個報價單
     for (const quote of quotes) {
       try {
+        // 獲取報價單項目
         const items = await Quote.getItems(quote.id);
         console.log(`產品報表 - 報價單 ${quote.id} 有 ${items.length} 個產品項目`);
         
+        if (items.length > 0) {
+          const firstItem = items[0];
+          console.log(`第一個項目數據結構: ${JSON.stringify(firstItem)}`);
+        }
+        
+        // 處理每個產品項目
         items.forEach(item => {
-          allItems.push({
-            quoteId: quote.id,
-            quoteStatus: quote.status,
-            productId: item.product_id || item.productId,
-            productName: item.product_name || item.productName,
-            quantity: item.quantity || 0,
-            unitPrice: item.unit_price || item.unitPrice || 0,
-            amount: (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price || item.unitPrice) || 0)
-          });
+          const productId = (item.product_id || '').toString();
+          if (productId && productMap[productId]) {
+            const product = productMap[productId];
+            const itemQuantity = parseFloat(item.quantity || 0);
+            const itemPrice = parseFloat(item.unit_price || item.price || 0);
+            const itemAmount = itemQuantity * itemPrice;
+            
+            console.log(`產品項目計算: 產品ID ${productId}, 數量 ${itemQuantity}, 單價 ${itemPrice}, 金額 ${itemAmount}`);
+            
+            // 更新產品統計數據
+            product.quantity += itemQuantity;
+            product.amount += itemAmount;
+            
+            // 如果報價已接受，更新已接受的統計數據
+            if (quote.status === 'accepted') {
+              product.acceptedQuantity += itemQuantity;
+              product.acceptedAmount += itemAmount;
+            }
+          }
         });
-      } catch (err) {
-        console.error(`獲取報價單 ${quote.id} 項目時出錯:`, err);
+      } catch (error) {
+        console.error(`處理報價單 ${quote.id} 時出錯:`, error);
       }
     }
     
-    console.log(`產品報表 - 總共有 ${allItems.length} 個產品項目`);
-    
-    // 計算每個產品的統計數據
-    const productStats = [];
-    
-    // 按產品ID對項目進行分組
-    const itemsByProduct = {};
-    allItems.forEach(item => {
-      const productId = item.productId ? (typeof item.productId === 'number' ? item.productId.toString() : item.productId) : null;
-      if (productId) {
-        if (!itemsByProduct[productId]) {
-          itemsByProduct[productId] = [];
-        }
-        itemsByProduct[productId].push(item);
+    // 計算轉換率並添加到統計數組
+    Object.values(productMap).forEach(product => {
+      if (product.quantity > 0) {
+        product.conversionRate = Math.round((product.acceptedQuantity / product.quantity) * 100);
+        productStats.push(product);
       }
     });
     
-    // 計算每個產品的統計數據
-    products.forEach(product => {
-      const productId = product.id.toString();
-      const items = itemsByProduct[productId] || [];
-      
-      if (items.length > 0) {
-        // 計算產品數據
-        const totalQuotes = new Set(items.map(item => item.quoteId)).size;
-        const totalQuantity = items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
-        const totalAmount = items.reduce((sum, item) => sum + (item.amount || 0), 0);
-        
-        // 計算已接受的報價數據
-        const acceptedItems = items.filter(item => item.quoteStatus === 'accepted');
-        const acceptedQuotes = new Set(acceptedItems.map(item => item.quoteId)).size;
-        const acceptedQuantity = acceptedItems.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
-        const acceptedAmount = acceptedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-        
-        // 計算轉換率
-        const conversionRate = totalQuotes > 0 ? Math.round((acceptedQuotes / totalQuotes) * 100) : 0;
-        
-        productStats.push({
-          id: productId,
-          name: product.name,
-          sku: product.sku || '',
-          price: product.price || 0,
-          category: product.category_name || product.categoryName || '',
-          total: totalQuotes,
-          quantity: totalQuantity,
-          amount: totalAmount,
-          accepted: acceptedQuotes,
-          acceptedQuantity: acceptedQuantity,
-          acceptedAmount: acceptedAmount,
-          conversionRate: conversionRate
-        });
-      }
-    });
+    console.log(`產品報表 - 總共有 ${productStats.length} 個產品項目`);
     
     // 根據指定的方式排序
     if (sortBy === 'name') {
       productStats.sort((a, b) => a.name.localeCompare(b.name));
     } else if (sortBy === 'total') {
-      productStats.sort((a, b) => b.total - a.total);
-    } else if (sortBy === 'quantity') {
       productStats.sort((a, b) => b.quantity - a.quantity);
-    } else if (sortBy === 'amount') {
-      productStats.sort((a, b) => b.amount - a.amount);
     } else if (sortBy === 'conversion') {
       productStats.sort((a, b) => b.conversionRate - a.conversionRate);
     } else {
@@ -838,42 +826,40 @@ router.get('/products/export', isAuthenticated, async (req, res) => {
     });
     
     // 處理報價單數據
-    for (const quote of quotes) {
-      try {
-        // 獲取報價單項目
-        const items = await Quote.getItems(quote.id);
-        console.log(`產品報表 Excel 匯出 - 報價單 ${quote.id} 有 ${items.length} 個產品項目`);
-        
-        if (items.length > 0 && items[0]) {
-          console.log(`第一個產品項目數據樣本: ${JSON.stringify(items[0])}`);
-        }
-        
-        items.forEach(item => {
-          const productId = (item.product_id || item.productId || '').toString();
-          if (productId && productMap[productId]) {
-            const product = productMap[productId];
-            const itemQuantity = parseInt(item.quantity || 0);
-            const itemPrice = parseFloat(item.unit_price || item.unitPrice || 0);
-            const itemAmount = parseFloat(item.amount || (itemQuantity * itemPrice) || 0);
+    quotes.forEach(quote => {
+      if (quote.items && Array.isArray(quote.items)) {
+        quote.items.forEach(item => {
+          if (item && item.product_id) {
+            const productId = item.product_id.toString();
+            // 從unit_price或price獲取價格
+            const itemPrice = parseFloat(item.unit_price || item.price || 0);
+            const itemQuantity = parseFloat(item.quantity || 0);
+            // 手動計算金額，不依賴item.amount
+            const itemAmount = itemQuantity * itemPrice;
             
-            product.quantity += itemQuantity;
-            product.amount += itemAmount;
+            console.log(`處理產品 ID: ${productId}, 數量: ${itemQuantity}, 價格: ${itemPrice}, 計算金額: ${itemAmount}`);
             
-            if (quote.status === 'accepted') {
-              product.acceptedQuantity += itemQuantity;
-              product.acceptedAmount += itemAmount;
+            // 如果這個產品在我們的產品映射中
+            if (productMap[productId]) {
+              // 更新產品統計數據
+              productMap[productId].quantity += itemQuantity;
+              productMap[productId].amount += itemAmount;
+              
+              // 如果報價已接受，更新已接受的統計數據
+              if (quote.status === 'accepted') {
+                productMap[productId].acceptedQuantity += itemQuantity;
+                productMap[productId].acceptedAmount += itemAmount;
+              }
             }
           }
         });
-      } catch (error) {
-        console.error(`獲取報價單 ${quote.id} 項目時出錯:`, error);
       }
-    }
+    });
     
     // 計算轉換率並添加到統計數組
     Object.values(productMap).forEach(product => {
       if (product.quantity > 0) {
-        product.conversionRate = product.quantity > 0 ? (product.acceptedQuantity / product.quantity) * 100 : 0;
+        product.conversionRate = product.quantity > 0 ? Math.round((product.acceptedQuantity / product.quantity) * 100) : 0;
         productStats.push(product);
       }
     });
@@ -906,13 +892,14 @@ router.get('/products/export', isAuthenticated, async (req, res) => {
     worksheet.columns = [
       { header: '產品名稱', key: 'name', width: 30 },
       { header: '產品編號', key: 'sku', width: 15 },
-      { header: '類別', key: 'category', width: 15 },
-      { header: '單價', key: 'price', width: 12, style: { numFmt: '#,##0.00' } },
-      { header: '銷售數量', key: 'quantity', width: 10 },
-      { header: '銷售金額', key: 'amount', width: 15, style: { numFmt: '#,##0.00' } },
-      { header: '已接受數量', key: 'acceptedQuantity', width: 12 },
+      { header: '分類', key: 'category', width: 15 },
+      { header: '總數量', key: 'quantity', width: 10 },
+      { header: '單位', key: 'unit', width: 10 },
+      { header: '單價', key: 'price', width: 15, style: { numFmt: '#,##0.00' } },
+      { header: '總金額', key: 'amount', width: 15, style: { numFmt: '#,##0.00' } },
+      { header: '已接受數量', key: 'acceptedQuantity', width: 15 },
       { header: '已接受金額', key: 'acceptedAmount', width: 15, style: { numFmt: '#,##0.00' } },
-      { header: '轉換率 (%)', key: 'conversionRate', width: 12, style: { numFmt: '0.00%' } }
+      { header: '轉換率(%)', key: 'conversionRate', width: 15, style: { numFmt: '0.00%' } }
     ];
     
     // 添加標題樣式
@@ -923,14 +910,15 @@ router.get('/products/export', isAuthenticated, async (req, res) => {
     productStats.forEach(product => {
       const row = worksheet.addRow({
         name: product.name,
-        sku: product.sku,
-        category: product.category,
-        price: product.price,
+        sku: product.sku || '',
+        category: product.category || '無分類',
         quantity: product.quantity,
-        amount: product.amount,
+        unit: '個',
+        price: parseFloat(product.price || 0).toFixed(2),
+        amount: parseFloat(product.amount || 0).toFixed(2),
         acceptedQuantity: product.acceptedQuantity,
-        acceptedAmount: product.acceptedAmount,
-        conversionRate: product.conversionRate / 100 // 轉為小數供Excel格式化
+        acceptedAmount: parseFloat(product.acceptedAmount || 0).toFixed(2),
+        conversionRate: product.conversionRate / 100  // 轉為小數供Excel格式化為百分比
       });
       
       // 顯著標記高轉換率的產品 (例如超過50%)
@@ -1002,47 +990,47 @@ router.get('/conversion', isAuthenticated, async (req, res) => {
       const quoteDate = new Date(quote.issue_date || quote.quoteDate || quote.created_at || new Date().toISOString());
       
       try {
-        if (queryPeriod === 'week') {
-          // 按週分組
-          const firstDayOfYear = new Date(quoteDate.getFullYear(), 0, 1);
-          const pastDaysOfYear = (quoteDate - firstDayOfYear) / 86400000;
-          const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+      if (queryPeriod === 'week') {
+        // 按週分組
+        const firstDayOfYear = new Date(quoteDate.getFullYear(), 0, 1);
+        const pastDaysOfYear = (quoteDate - firstDayOfYear) / 86400000;
+        const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
           periodKey = `${quoteDate.getFullYear()}年第${weekNumber}週`;
-        } else if (queryPeriod === 'quarter') {
-          // 按季度分組
-          const quarter = Math.floor(quoteDate.getMonth() / 3) + 1;
+      } else if (queryPeriod === 'quarter') {
+        // 按季度分組
+        const quarter = Math.floor(quoteDate.getMonth() / 3) + 1;
           periodKey = `${quoteDate.getFullYear()}年第${quarter}季度`;
-        } else {
-          // 默認按月分組
-          periodKey = quoteDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
-        }
-        
-        if (!periodData[periodKey]) {
-          periodData[periodKey] = {
-            total: 0,
-            draft: 0,
-            sent: 0,
-            accepted: 0,
-            rejected: 0,
-            amount: 0,
-            acceptedAmount: 0
-          };
-        }
-        
-        periodData[periodKey].total++;
-        
-        // 根據報價單狀態累加數量
-        if (quote.status) {
-          periodData[periodKey][quote.status]++;
-        }
-        
-        // 累加金額
-        const quoteTotal = parseFloat(quote.total_amount || quote.total || 0);
-        periodData[periodKey].amount += quoteTotal;
-        
-        if (quote.status === 'accepted') {
-          periodData[periodKey].acceptedAmount += quoteTotal;
-        }
+      } else {
+        // 默認按月分組
+        const year = quoteDate.getFullYear();
+        const month = quoteDate.getMonth() + 1;
+        periodKey = `${year}年${month}月`;
+      }
+      
+      // 初始化該時間段的數據
+      if (!periodData[periodKey]) {
+        periodData[periodKey] = {
+          total: 0,
+          draft: 0,
+          sent: 0,
+          accepted: 0,
+          rejected: 0,
+          amount: 0,
+          acceptedAmount: 0
+        };
+      }
+      
+      // 累加報價單數量
+      periodData[periodKey].total++;
+      periodData[periodKey][quote.status]++;
+      
+      // 累加金額
+      const quoteTotal = parseFloat(quote.total_amount || quote.total || 0);
+      periodData[periodKey].amount += quoteTotal;
+      
+      if (quote.status === 'accepted') {
+        periodData[periodKey].acceptedAmount += quoteTotal;
+      }
       } catch (err) {
         console.error(`處理報價單 ID: ${quote.id} 的日期時出錯:`, err);
       }
@@ -1063,10 +1051,10 @@ router.get('/conversion', isAuthenticated, async (req, res) => {
       acceptedAmount: periodData[period].acceptedAmount,
       conversionRate: periodData[period].total > 0 
         ? (periodData[period].accepted / periodData[period].total * 100).toFixed(2) 
-        : 0,
+        : '0.00',
       amountConversionRate: periodData[period].amount > 0 
         ? (periodData[period].acceptedAmount / periodData[period].amount * 100).toFixed(2) 
-        : 0
+        : '0.00'
     }));
     
     // 按日期排序（最近的日期在前）
@@ -1126,7 +1114,7 @@ router.get('/conversion', isAuthenticated, async (req, res) => {
       endDate: endDate || toDate || queryEndDate.toISOString().split('T')[0],
       period: queryPeriod,
       conversionStats,
-      totalStats,
+      totalStats, // 確保使用正確的變數名稱
       formatCurrency: (value) => {
         return parseFloat(value).toLocaleString('zh-TW', {
           minimumFractionDigits: 2,
@@ -1332,12 +1320,12 @@ router.get('/conversion/export', isAuthenticated, async (req, res) => {
     };
     
     totalStats.conversionRate = totalStats.totalQuotes > 0 
-      ? (totalStats.acceptedQuotes / totalStats.totalQuotes * 100).toFixed(2) 
-      : '0.00';
+      ? Math.round((totalStats.acceptedQuotes / totalStats.totalQuotes) * 100) 
+      : 0;
     
     totalStats.amountConversionRate = totalStats.totalAmount > 0 
-      ? (totalStats.acceptedAmount / totalStats.totalAmount * 100).toFixed(2) 
-      : '0.00';
+      ? Math.round((totalStats.acceptedAmount / totalStats.totalAmount) * 100) 
+      : 0;
     
     // 添加總計行
     worksheet.addRow({});

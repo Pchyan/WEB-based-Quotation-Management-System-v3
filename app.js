@@ -106,7 +106,61 @@ app.get('/', (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.redirect('/auth/login');
   }
-  res.render('pages/dashboard');
+  
+  // 獲取最近的報價單和系統統計數據
+  const { getDb } = require('./database/init');
+  const db = getDb();
+  
+  // 獲取最近報價單
+  db.all(
+    `SELECT q.*, c.name as customer_name 
+     FROM quotes q
+     LEFT JOIN customers c ON q.customer_id = c.id
+     ORDER BY q.created_at DESC LIMIT 5`,
+    [],
+    (err, recentQuotes) => {
+      if (err) {
+        console.error('獲取最近報價單時出錯:', err);
+        recentQuotes = [];
+      }
+      
+      // 獲取統計數據
+      db.get(
+        `SELECT 
+          (SELECT COUNT(*) FROM customers) as customerCount,
+          (SELECT COUNT(*) FROM products) as productCount,
+          (SELECT COUNT(*) FROM quotes) as quoteCount,
+          (SELECT COUNT(*) FROM quotes WHERE status = 'accepted') as acceptedQuoteCount`,
+        [],
+        (err, stats) => {
+          if (err) {
+            console.error('獲取統計數據時出錯:', err);
+            stats = {
+              customerCount: 0,
+              productCount: 0,
+              quoteCount: 0,
+              acceptedQuoteCount: 0
+            };
+          }
+          
+          res.render('pages/dashboard', {
+            recentQuotes: recentQuotes || [],
+            stats: stats || {},
+            getStatusBadgeClass: (status) => {
+              switch(status) {
+                case 'draft': return 'bg-secondary';
+                case 'sent': return 'bg-primary';
+                case 'accepted': return 'bg-success';
+                case 'rejected': return 'bg-danger';
+                case 'expired': return 'bg-warning';
+                default: return 'bg-secondary';
+              }
+            }
+          });
+        }
+      );
+    }
+  );
 });
 
 // 錯誤處理中間件

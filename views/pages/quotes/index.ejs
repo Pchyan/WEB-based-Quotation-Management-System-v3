@@ -174,24 +174,33 @@
   document.getElementById('deleteForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
+    console.log('提交刪除請求:', this.action);
+    
     fetch(this.action, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-      }
+      },
+      body: JSON.stringify({}) // 添加空的請求體
     })
-    .then(response => response.json())
+    .then(response => {
+      console.log('收到刪除響應, 狀態:', response.status);
+      return response.json();
+    })
     .then(data => {
+      console.log('刪除響應數據:', data);
       if (data.success) {
+        console.log('刪除成功，正在重定向...');
         window.location.href = '/quotes';
       } else {
+        console.error('刪除失敗:', data.message);
         alert(data.message || '刪除失敗');
         bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
       }
     })
     .catch(error => {
-      console.error('錯誤:', error);
-      alert('處理請求時發生錯誤');
+      console.error('處理刪除請求時發生錯誤:', error);
+      alert('處理請求時發生錯誤: ' + error.message);
     });
   });
 </script>

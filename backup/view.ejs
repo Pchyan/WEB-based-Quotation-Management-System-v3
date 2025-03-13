@@ -5,17 +5,16 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><%= product.name %></h1>
     <div>
-      <div class="btn-group">
-        <a href="/products/edit/<%= product.id %>" class="btn btn-outline-primary mr-2">
-          <i class="bi bi-pencil"></i> 編輯
-        </a>
-        <form action="/products/delete/<%= product.id %>" method="POST" class="d-inline" 
-              onsubmit="return confirm('確定要刪除此產品嗎？此操作無法撤銷。');">
-          <button type="submit" class="btn btn-danger">
-            <i class="bi bi-trash"></i> 刪除
-          </button>
-        </form>
-      </div>
+      <a href="/products/edit/<%= product.id %>" class="btn btn-primary">
+        <i class="bi bi-pencil"></i> 編輯產品
+      </a>
+      <button type="button" class="btn btn-outline-danger ms-2" 
+              data-id="<%= product.id %>" 
+              data-name="<%= product.name %>"
+              data-bs-toggle="modal" 
+              data-bs-target="#deleteModal">
+        <i class="bi bi-trash"></i> 刪除產品
+      </button>
     </div>
   </div>
   
@@ -163,5 +162,65 @@
     </div>
   </div>
 </div>
+
+<!-- 刪除確認模態框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">確認刪除</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        確定要刪除產品「<span id="productName"></span>」嗎？此操作無法撤銷。
+        <div class="alert alert-warning mt-3">
+          <i class="bi bi-exclamation-triangle"></i> 警告：若此產品已用於報價單中，可能會影響現有報價單的計算。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <form id="deleteForm" method="POST">
+          <button type="submit" class="btn btn-danger">確認刪除</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('[data-bs-toggle="modal"]').forEach(button => {
+    button.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      const name = this.getAttribute('data-name');
+      document.getElementById('productName').textContent = name;
+      document.getElementById('deleteForm').action = `/products/delete/${id}`;
+    });
+  });
+  
+  // 處理刪除表單提交
+  document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/products';
+      } else {
+        alert(data.message || '刪除失敗');
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+      }
+    })
+    .catch(error => {
+      console.error('錯誤:', error);
+      alert('處理請求時發生錯誤');
+    });
+  });
+</script>
 
 <%- include('../../partials/footer') %> 

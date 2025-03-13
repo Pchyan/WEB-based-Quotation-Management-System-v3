@@ -235,28 +235,35 @@ router.post('/edit/:id', [
 // 刪除客戶
 router.post('/delete/:id', isAuthenticated, async (req, res) => {
   try {
+    console.log(`嘗試刪除客戶 ID: ${req.params.id}, 用戶: ${req.session.user ? req.session.user.username : '未知'}`);
+    
     // 檢查客戶是否存在
     const customer = await Customer.findById(req.params.id);
     if (!customer) {
-      return res.status(404).json({ success: false, message: '找不到客戶' });
+      console.error(`找不到要刪除的客戶: ${req.params.id}`);
+      req.flash('error', '找不到客戶');
+      return res.redirect('/customers');
     }
 
     // 檢查客戶是否有關聯的報價單
     const quotes = await Customer.getQuotes(req.params.id);
     if (quotes && quotes.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: '無法刪除客戶，因為有關聯的報價單。請先刪除報價單或將報價單關聯到其他客戶。' 
-      });
+      console.error(`客戶 ${req.params.id} 有 ${quotes.length} 個關聯報價單，無法刪除`);
+      req.flash('error', '無法刪除客戶，因為有關聯的報價單。請先刪除報價單或將報價單關聯到其他客戶。');
+      return res.redirect('/customers');
     }
 
     // 刪除客戶
+    console.log(`開始刪除客戶: ${req.params.id}`);
     await Customer.delete(req.params.id);
     
-    res.json({ success: true });
+    console.log(`客戶刪除成功: ${req.params.id}`);
+    req.flash('success', '客戶已成功刪除');
+    return res.redirect('/customers');
   } catch (err) {
-    console.error('刪除客戶錯誤:', err);
-    res.status(500).json({ success: false, message: err.message || '刪除客戶時發生錯誤' });
+    console.error('刪除客戶錯誤', err);
+    req.flash('error', `刪除客戶失敗: ${err.message || '未知錯誤'}`);
+    return res.redirect('/customers');
   }
 });
 
