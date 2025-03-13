@@ -49,15 +49,15 @@
             <tbody>
               <% quotes.forEach(quote => { %>
                 <tr>
-                  <td><a href="/quotes/view/<%= quote.id %>"><%= quote.quoteNumber %></a></td>
-                  <td><a href="/customers/view/<%= quote.customer.id %>"><%= quote.customer.name %></a></td>
-                  <td><%= formatDate(quote.quoteDate) %></td>
-                  <td><%= formatDate(quote.validUntil) %></td>
-                  <td>$<%= quote.total.toFixed(2) %></td>
+                  <td><a href="/quotes/<%= quote.id %>"><%= quote.quote_number || quote.id %></a></td>
+                  <td><a href="/customers/view/<%= quote.customer_id %>"><%= quote.customer_name || '未知客戶' %></a></td>
+                  <td><%= formatDate(quote.issue_date) %></td>
+                  <td><%= formatDate(quote.valid_until) %></td>
+                  <td>$<%= typeof quote.total === 'number' ? quote.total.toFixed(2) : '0.00' %></td>
                   <td><span class="badge <%= getStatusBadgeClass(quote.status) %>"><%= getStatusText(quote.status) %></span></td>
                   <td>
                     <div class="btn-group btn-group-sm">
-                      <a href="/quotes/view/<%= quote.id %>" class="btn btn-outline-primary">
+                      <a href="/quotes/<%= quote.id %>" class="btn btn-outline-primary">
                         <i class="bi bi-eye"></i>
                       </a>
                       <a href="/quotes/edit/<%= quote.id %>" class="btn btn-outline-secondary">
@@ -65,7 +65,7 @@
                       </a>
                       <button type="button" class="btn btn-outline-danger delete-quote-btn" 
                               data-id="<%= quote.id %>" 
-                              data-number="<%= quote.quoteNumber %>"
+                              data-number="<%= quote.quote_number || quote.id %>"
                               data-bs-toggle="modal" 
                               data-bs-target="#deleteQuoteModal">
                         <i class="bi bi-trash"></i>
@@ -125,6 +125,7 @@
       case 'sent': return 'bg-primary';
       case 'accepted': return 'bg-success';
       case 'rejected': return 'bg-danger';
+      case 'expired': return 'bg-warning';
       default: return 'bg-secondary';
     }
   }
@@ -135,13 +136,19 @@
       case 'sent': return '已發送';
       case 'accepted': return '已接受';
       case 'rejected': return '已拒絕';
+      case 'expired': return '已過期';
       default: return '未知';
     }
   }
   
   function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-TW');
+    if (!dateString) return '未設定';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-TW');
+    } catch (e) {
+      return '無效日期';
+    }
   }
 </script>
 

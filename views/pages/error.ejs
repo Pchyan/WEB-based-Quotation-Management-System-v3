@@ -6,15 +6,15 @@
     <div class="col-md-8">
       <div class="card">
         <div class="card-header bg-danger text-white">
-          <h4><i class="fas fa-exclamation-triangle"></i> <%= title %></h4>
+          <h4><i class="fas fa-exclamation-triangle"></i> <%= typeof title !== 'undefined' ? title : '系統錯誤' %></h4>
         </div>
         <div class="card-body text-center">
-          <p class="lead"><%= message %></p>
+          <p class="lead"><%= typeof message !== 'undefined' ? message : error %></p>
           <hr>
-          <a href="javascript:history.back()" class="btn btn-secondary">
+          <a href="javascript:history.back()" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left"></i> 返回上一頁
           </a>
-          <a href="/" class="btn btn-primary">
+          <a href="/" class="btn btn-outline-primary">
             <i class="fas fa-home"></i> 返回首頁
           </a>
         </div>

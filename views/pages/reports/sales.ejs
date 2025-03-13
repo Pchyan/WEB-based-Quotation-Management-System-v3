@@ -106,78 +106,102 @@
   <!-- 報價列表 -->
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0">報價清單</h5>
+      <h5 class="card-title mb-0">按客戶統計</h5>
+    </div>
+    <div class="card-body">
+      <% if (customerStats && customerStats.length > 0) { %>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>客戶</th>
+                <th>報價單數</th>
+                <th>已接受數</th>
+                <th>接受率</th>
+                <th class="text-end">總金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% customerStats.forEach(function(customer) { %>
+                <tr>
+                  <td><%= customer.name %></td>
+                  <td><%= customer.count %></td>
+                  <td><%= customer.accepted %></td>
+                  <td><%= customer.acceptanceRate %>%</td>
+                  <td class="text-end">$<%= formatCurrency(customer.amount) %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="alert alert-info">
+          此時間範圍內沒有客戶報價數據
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- 報價列表 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">報價單列表</h5>
       <div>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#quoteListCollapse" aria-expanded="false" aria-controls="quoteListCollapse">
+          <i class="bi bi-arrows-expand"></i> 展開/收起
+        </button>
         <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
           <i class="bi bi-printer"></i> 列印報表
         </button>
-        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+        <a href="/reports/sales/export<%= startDate ? '?startDate=' + startDate : '' %><%= endDate ? '&endDate=' + endDate : '' %><%= status ? '&status=' + status : '' %><%= groupBy ? '&groupBy=' + groupBy : '' %>" class="btn btn-sm btn-outline-success">
           <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
-        </button>
+        </a>
       </div>
     </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>報價單號</th>
-              <th>客戶</th>
-              <th>報價日期</th>
-              <th>有效期限</th>
-              <th>總金額</th>
-              <th>狀態</th>
-              <th>負責人</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% if (locals.quotes && quotes.length > 0) { %>
-              <% quotes.forEach(quote => { %>
+    <div class="collapse" id="quoteListCollapse">
+      <div class="card-body">
+        <% if (quotes && quotes.length > 0) { %>
+          <div class="table-responsive">
+            <table class="table table-hover table-sm">
+              <thead>
                 <tr>
-                  <td><a href="/quotes/<%= quote.id %>"><%= quote.quoteNumber %></a></td>
-                  <td><a href="/customers/<%= quote.customer ? quote.customer.id : '' %>"><%= quote.customer ? quote.customer.name : '—' %></a></td>
-                  <td><%= new Date(quote.quoteDate).toLocaleDateString('zh-TW') %></td>
-                  <td><%= new Date(quote.validUntil).toLocaleDateString('zh-TW') %></td>
-                  <td>$<%= quote.total.toFixed(2) %></td>
-                  <td>
-                    <% if (quote.status === 'draft') { %>
-                      <span class="badge bg-secondary">草稿</span>
-                    <% } else if (quote.status === 'sent') { %>
-                      <span class="badge bg-primary">已發送</span>
-                    <% } else if (quote.status === 'accepted') { %>
-                      <span class="badge bg-success">已接受</span>
-                    <% } else if (quote.status === 'rejected') { %>
-                      <span class="badge bg-danger">已拒絕</span>
-                    <% } %>
-                  </td>
-                  <td><%= quote.user ? quote.user.name : '—' %></td>
-                  <td>
-                    <div class="btn-group">
-                      <a href="/quotes/<%= quote.id %>" class="btn btn-sm btn-outline-secondary">
+                  <th>#</th>
+                  <th>報價單號</th>
+                  <th>客戶</th>
+                  <th>日期</th>
+                  <th>狀態</th>
+                  <th class="text-end">金額</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <% quotes.forEach(function(quote) { %>
+                  <tr>
+                    <td><%= quote.id %></td>
+                    <td><%= quote.quote_number || '無編號' %></td>
+                    <td><%= quote.customer_name || '未知客戶' %></td>
+                    <td><%= formatDate(quote.issue_date || quote.quoteDate || quote.created_at) %></td>
+                    <td>
+                      <span class="badge <%= getStatusBadgeClass(quote.status) %>">
+                        <%= getStatusText(quote.status) %>
+                      </span>
+                    </td>
+                    <td class="text-end">$<%= formatCurrency(quote.total) %></td>
+                    <td class="text-end">
+                      <a href="/quotes/<%= quote.id %>" class="btn btn-sm btn-outline-primary">
                         <i class="bi bi-eye"></i>
                       </a>
-                      <a href="/quotes/edit/<%= quote.id %>" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-pencil"></i>
-                      </a>
-                      <a href="/quotes/pdf/<%= quote.id %>" target="_blank" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-file-pdf"></i>
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              <% }); %>
-            <% } else { %>
-              <tr>
-                <td colspan="8" class="text-center py-4">
-                  <div class="alert alert-info mb-0">
-                    <i class="bi bi-info-circle me-2"></i> 沒有符合條件的報價單
-                  </div>
-                </td>
-              </tr>
-            <% } %>
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="alert alert-info">
+            此時間範圍內沒有報價數據
+          </div>
+        <% } %>
       </div>
     </div>
   </div>

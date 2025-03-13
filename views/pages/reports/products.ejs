@@ -36,22 +36,22 @@
           <input type="date" class="form-control" id="endDate" name="endDate" value="<%= endDate %>">
         </div>
         <div class="col-md-3">
-          <label for="categoryId" class="form-label">產品分類</label>
-          <select class="form-select" id="categoryId" name="categoryId">
-            <option value="all" <%= categoryId === 'all' ? 'selected' : '' %>>所有分類</option>
+          <label for="category" class="form-label">產品分類</label>
+          <select class="form-select" id="category" name="category">
+            <option value="all" <%= category === 'all' ? 'selected' : '' %>>所有分類</option>
             <% if (locals.categories && categories.length > 0) { %>
-              <% categories.forEach(category => { %>
-                <option value="<%= category.id %>" <%= categoryId == category.id ? 'selected' : '' %>><%= category.name %></option>
+              <% categories.forEach(cat => { %>
+                <option value="<%= cat.id %>" <%= category == cat.id ? 'selected' : '' %>><%= cat.name %></option>
               <% }); %>
             <% } %>
           </select>
         </div>
         <div class="col-md-3">
-          <label for="sort" class="form-label">排序方式</label>
-          <select class="form-select" id="sort" name="sort">
-            <option value="amount" <%= sort === 'amount' ? 'selected' : '' %>>依總金額</option>
-            <option value="quantity" <%= sort === 'quantity' ? 'selected' : '' %>>依銷售數量</option>
-            <option value="conversion" <%= sort === 'conversion' ? 'selected' : '' %>>依轉換率</option>
+          <label for="sortBy" class="form-label">排序方式</label>
+          <select class="form-select" id="sortBy" name="sortBy">
+            <option value="amount" <%= sortBy === 'amount' ? 'selected' : '' %>>依總金額</option>
+            <option value="quantity" <%= sortBy === 'quantity' ? 'selected' : '' %>>依銷售數量</option>
+            <option value="conversion" <%= sortBy === 'conversion' ? 'selected' : '' %>>依轉換率</option>
           </select>
         </div>
         <div class="col-12">
@@ -74,9 +74,9 @@
         <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
           <i class="bi bi-printer"></i> 列印報表
         </button>
-        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+        <a href="/reports/products/export<%= startDate ? '?startDate=' + startDate : '' %><%= endDate ? '&endDate=' + endDate : '' %><%= category ? '&category=' + category : '' %><%= sortBy ? '&sortBy=' + sortBy : '' %>" class="btn btn-sm btn-outline-success">
           <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
-        </button>
+        </a>
       </div>
     </div>
     <div class="card-body p-0">
@@ -102,19 +102,19 @@
                 <tr>
                   <td><a href="/products/<%= product.id %>"><%= product.name %></a></td>
                   <td><%= product.sku || '—' %></td>
-                  <td>$<%= product.price.toFixed(2) %></td>
-                  <td><%= product.category %></td>
-                  <td><%= product.totalQuotes %></td>
-                  <td><%= product.totalQuantity %></td>
-                  <td>$<%= product.totalAmount.toFixed(2) %></td>
-                  <td><%= product.acceptedQuantity %></td>
-                  <td>$<%= product.acceptedAmount.toFixed(2) %></td>
+                  <td>$<%= (product.price || 0).toFixed(2) %></td>
+                  <td><%= product.category || '未分類' %></td>
+                  <td><%= product.total || 0 %></td>
+                  <td><%= product.quantity || 0 %></td>
+                  <td>$<%= (product.amount || 0).toFixed(2) %></td>
+                  <td><%= product.acceptedQuantity || 0 %></td>
+                  <td>$<%= (product.acceptedAmount || 0).toFixed(2) %></td>
                   <td>
                     <div class="d-flex align-items-center">
                       <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                        <div class="progress-bar" role="progressbar" style="width: <%= product.conversionRate %>%" aria-valuenow="<%= product.conversionRate %>" aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress-bar" role="progressbar" style="width: <%= product.conversionRate || 0 %>%" aria-valuenow="<%= product.conversionRate || 0 %>" aria-valuemin="0" aria-valuemax="100"></div>
                       </div>
-                      <span><%= product.conversionRate %>%</span>
+                      <span><%= product.conversionRate || 0 %>%</span>
                     </div>
                   </td>
                 </tr>

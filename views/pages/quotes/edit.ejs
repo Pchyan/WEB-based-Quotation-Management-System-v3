@@ -3,9 +3,9 @@
 
 <div class="container-fluid mt-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>編輯報價單 #<%= quote.quoteNumber %></h1>
+    <h1>編輯報價單 #<%= quote.quoteNumber || quote.quote_number || quote.id %></h1>
     <div>
-      <a href="/quotes/view/<%= quote.id %>" class="btn btn-outline-secondary me-2">
+      <a href="/quotes/<%= quote.id %>" class="btn btn-outline-secondary me-2">
         <i class="bi bi-x"></i> 取消
       </a>
       <a href="/quotes" class="btn btn-outline-secondary">
@@ -45,18 +45,18 @@
 
             <div class="mb-3">
               <label for="quoteNumber" class="form-label">報價單號</label>
-              <input type="text" class="form-control" id="quoteNumber" name="quoteNumber" value="<%= quote.quoteNumber %>" readonly>
+              <input type="text" class="form-control" id="quoteNumber" name="quoteNumber" value="<%= quote.quoteNumber || quote.quote_number || quote.id %>" readonly>
               <div class="form-text">系統自動生成</div>
             </div>
 
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label for="quoteDate" class="form-label">報價日期</label>
-                <input type="date" class="form-control" id="quoteDate" name="quoteDate" value="<%= new Date(quote.quoteDate).toISOString().split('T')[0] %>" required>
+                <input type="date" class="form-control" id="quoteDate" name="quoteDate" value="<%= formatDateForInput(quote.quoteDate) %>" required>
               </div>
               <div class="col-md-6 mb-3">
                 <label for="validUntil" class="form-label">有效期限</label>
-                <input type="date" class="form-control" id="validUntil" name="validUntil" value="<%= new Date(quote.validUntil).toISOString().split('T')[0] %>" required>
+                <input type="date" class="form-control" id="validUntil" name="validUntil" value="<%= formatDateForInput(quote.validUntil) %>" required>
               </div>
             </div>
 
@@ -133,8 +133,8 @@
                 <strong>小計：</strong>
               </div>
               <div class="col-md-4 text-end">
-                <span id="subtotal">$<%= quote.subtotal.toFixed(2) %></span>
-                <input type="hidden" name="subtotal" id="subtotalInput" value="<%= quote.subtotal %>">
+                <span id="subtotal">$<%= typeof quote.subtotal === 'number' ? quote.subtotal.toFixed(2) : '0.00' %></span>
+                <input type="hidden" name="subtotal" id="subtotalInput" value="<%= quote.subtotal || 0 %>">
               </div>
             </div>
 
@@ -149,8 +149,8 @@
                 </div>
               </div>
               <div class="col-md-4 text-end">
-                <span id="discountAmount">$<%= quote.discountAmount.toFixed(2) %></span>
-                <input type="hidden" name="discountAmount" id="discountAmountInput" value="<%= quote.discountAmount %>">
+                <span id="discountAmount">$<%= typeof quote.discountAmount === 'number' ? quote.discountAmount.toFixed(2) : '0.00' %></span>
+                <input type="hidden" name="discountAmount" id="discountAmountInput" value="<%= quote.discountAmount || 0 %>">
               </div>
             </div>
 
@@ -165,8 +165,8 @@
                 </div>
               </div>
               <div class="col-md-4 text-end">
-                <span id="taxAmount">$<%= quote.taxAmount.toFixed(2) %></span>
-                <input type="hidden" name="taxAmount" id="taxAmountInput" value="<%= quote.taxAmount %>">
+                <span id="taxAmount">$<%= typeof quote.taxAmount === 'number' ? quote.taxAmount.toFixed(2) : '0.00' %></span>
+                <input type="hidden" name="taxAmount" id="taxAmountInput" value="<%= quote.taxAmount || 0 %>">
               </div>
             </div>
 
@@ -177,8 +177,8 @@
                 <strong>總計：</strong>
               </div>
               <div class="col-md-4 text-end">
-                <h4 id="total">$<%= quote.total.toFixed(2) %></h4>
-                <input type="hidden" name="total" id="totalInput" value="<%= quote.total %>">
+                <h4 id="total">$<%= typeof quote.total === 'number' ? quote.total.toFixed(2) : '0.00' %></h4>
+                <input type="hidden" name="total" id="totalInput" value="<%= quote.total || 0 %>">
               </div>
             </div>
           </div>
@@ -270,11 +270,11 @@
     <% if (quote.items && quote.items.length > 0) { %>
       <% quote.items.forEach(item => { %>
         addItem({
-          id: '<%= item.productId %>',
-          name: '<%= item.name %>',
-          price: <%= item.price %>,
-          quantity: <%= item.quantity %>,
-          unit: '<%= item.unit %>',
+          id: '<%= item.product_id %>',
+          name: '<%= item.product_name || item.description || "未命名項目" %>',
+          price: <%= item.unit_price || 0 %>,
+          quantity: <%= item.quantity || 1 %>,
+          unit: '<%= item.unit || "個" %>',
           existingId: '<%= item.id %>'
         });
       <% }); %>

@@ -94,6 +94,52 @@ class Quote {
     });
   }
 
+  // 獲取報價單項目
+  static getItems(quoteId) {
+    return new Promise((resolve, reject) => {
+      const db = getDb();
+      console.log(`獲取報價單 ID: ${quoteId} 的所有項目`);
+      
+      db.all(
+        `SELECT qi.*, p.name as product_name, p.sku as product_sku 
+         FROM quote_items qi
+         LEFT JOIN products p ON qi.product_id = p.id
+         WHERE qi.quote_id = ?
+         ORDER BY qi.sort_order ASC`,
+        [quoteId],
+        (err, rows) => {
+          if (err) {
+            console.error(`獲取報價單項目時出錯:`, err);
+            return reject(err);
+          }
+          
+          console.log(`成功獲取 ${rows.length} 個報價單項目`);
+          console.log('第一個項目數據結構:', rows.length > 0 ? JSON.stringify(rows[0]) : '無項目');
+          
+          // 處理項目數據
+          const items = rows.map(item => {
+            return {
+              id: item.id,
+              quote_id: item.quote_id,
+              product_id: item.product_id,
+              name: item.name || item.product_name || '未命名項目',
+              description: item.description,
+              price: parseFloat(item.unit_price) || 0,
+              quantity: parseFloat(item.quantity) || 0,
+              unit: item.unit || '個',
+              discount: parseFloat(item.discount) || 0,
+              amount: parseFloat(item.amount) || 0,
+              item_order: item.sort_order || 0,
+              product_sku: item.product_sku
+            };
+          });
+          
+          resolve(items);
+        }
+      );
+    });
+  }
+
   // 搜尋報價單
   static search(searchTerm, status, startDate, endDate) {
     return new Promise((resolve, reject) => {
@@ -186,6 +232,31 @@ class Quote {
         
         const now = new Date().toISOString();
         
+        // 確保數據有效
+        const safeQuoteData = {
+          quoteNumber: quoteData.quoteNumber || `QT-${Date.now()}`,
+          customerId: quoteData.customerId,
+          title: quoteData.title || `報價單 ${quoteData.quoteNumber || ''}`,
+          description: quoteData.description || '',
+          issueDate: quoteData.issueDate || now.split('T')[0],
+          validUntil: quoteData.validUntil || '',
+          status: quoteData.status || 'draft',
+          subtotal: quoteData.subtotal || 0,
+          discountType: quoteData.discountType || null,
+          discountValue: quoteData.discountValue || 0,
+          taxRate: quoteData.taxRate || 0,
+          taxAmount: quoteData.taxAmount || 0,
+          total: quoteData.total || 0,
+          notes: quoteData.notes || '',
+          terms: quoteData.terms || '',
+          createdBy: quoteData.createdBy,
+          items: quoteData.items || []
+        };
+        
+        console.log('===== 開始創建報價單 =====');
+        console.log('報價單號:', safeQuoteData.quoteNumber);
+        console.log('客戶 ID:', safeQuoteData.customerId);
+        
         // 插入報價單主表
         db.run(
           `INSERT INTO quotes (
@@ -194,22 +265,22 @@ class Quote {
             total, notes, terms, created_by, created_at, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            quoteData.quoteNumber,
-            quoteData.customerId,
-            quoteData.title,
-            quoteData.description,
-            quoteData.issueDate,
-            quoteData.validUntil,
-            quoteData.status || 'draft',
-            quoteData.subtotal,
-            quoteData.discountType,
-            quoteData.discountValue,
-            quoteData.taxRate,
-            quoteData.taxAmount,
-            quoteData.total,
-            quoteData.notes,
-            quoteData.terms,
-            quoteData.createdBy,
+            safeQuoteData.quoteNumber,
+            safeQuoteData.customerId,
+            safeQuoteData.title,
+            safeQuoteData.description,
+            safeQuoteData.issueDate,
+            safeQuoteData.validUntil,
+            safeQuoteData.status,
+            safeQuoteData.subtotal,
+            safeQuoteData.discountType,
+            safeQuoteData.discountValue,
+            safeQuoteData.taxRate,
+            safeQuoteData.taxAmount,
+            safeQuoteData.total,
+            safeQuoteData.notes,
+            safeQuoteData.terms,
+            safeQuoteData.createdBy,
             now,
             now
           ],
@@ -222,13 +293,19 @@ class Quote {
             const quoteId = this.lastID;
             
             // 如果沒有項目，直接提交
-            if (!quoteData.items || quoteData.items.length === 0) {
+            if (!safeQuoteData.items || safeQuoteData.items.length === 0) {
               db.run('COMMIT');
               Quote.findById(quoteId)
                 .then(quote => resolve(quote))
                 .catch(err => {
-                  db.run('ROLLBACK');
-                  reject(err);
+                  console.error('創建後查找報價單時出錯:', err);
+                  // 仍然將它視為成功，但返回基本資訊
+                  resolve({
+                    id: quoteId,
+                    quote_number: safeQuoteData.quoteNumber,
+                    customer_id: safeQuoteData.customerId,
+                    status: safeQuoteData.status || 'draft'
+                  });
                 });
               return;
             }
@@ -244,7 +321,7 @@ class Quote {
             let itemsProcessed = 0;
             let hasError = false;
             
-            quoteData.items.forEach((item, index) => {
+            safeQuoteData.items.forEach((item, index) => {
               stmt.run(
                 [
                   quoteId,
@@ -269,7 +346,7 @@ class Quote {
                   }
                   
                   // 所有項目處理完成
-                  if (itemsProcessed === quoteData.items.length && !hasError) {
+                  if (itemsProcessed === safeQuoteData.items.length && !hasError) {
                     stmt.finalize();
                     
                     // 記錄歷史
@@ -280,8 +357,8 @@ class Quote {
                       [
                         quoteId,
                         'create',
-                        quoteData.status || 'draft',
-                        quoteData.createdBy,
+                        safeQuoteData.status,
+                        safeQuoteData.createdBy,
                         now,
                         '報價單已創建'
                       ],
@@ -295,8 +372,14 @@ class Quote {
                         Quote.findById(quoteId)
                           .then(quote => resolve(quote))
                           .catch(err => {
-                            db.run('ROLLBACK');
-                            reject(err);
+                            console.error('創建後查找報價單時出錯:', err);
+                            // 仍然將它視為成功，但返回基本資訊
+                            resolve({
+                              id: quoteId,
+                              quote_number: safeQuoteData.quoteNumber,
+                              customer_id: safeQuoteData.customerId,
+                              status: safeQuoteData.status || 'draft'
+                            });
                           });
                       }
                     );
@@ -467,9 +550,11 @@ class Quote {
   }
 
   // 更新報價單狀態
-  static updateStatus(id, status, userId, notes) {
+  static updateStatus(id, status, userId) {
     return new Promise((resolve, reject) => {
       const db = getDb();
+      
+      console.log(`更新報價單 ID: ${id} 的狀態為: ${status}, 操作者: ${userId}`);
       
       // 開始交易
       db.serialize(() => {
@@ -479,20 +564,22 @@ class Quote {
         
         // 更新報價單狀態
         db.run(
-          'UPDATE quotes SET status = ?, updated_at = ? WHERE id = ?',
+          `UPDATE quotes SET status = ?, updated_at = ? WHERE id = ?`,
           [status, now, id],
           function(err) {
             if (err) {
+              console.error(`更新報價單狀態失敗:`, err);
               db.run('ROLLBACK');
               return reject(err);
             }
             
             if (this.changes === 0) {
+              console.error(`找不到 ID 為 ${id} 的報價單`);
               db.run('ROLLBACK');
-              return reject(new Error('報價單不存在或未更新任何資料'));
+              return reject(new Error('報價單不存在'));
             }
             
-            // 記錄歷史
+            // 記錄狀態變更歷史
             db.run(
               `INSERT INTO quote_history (
                 quote_id, action, status, user_id, timestamp, notes
@@ -503,21 +590,17 @@ class Quote {
                 status,
                 userId,
                 now,
-                notes || `報價單狀態已更改為 ${status}`
+                `報價單狀態更新為: ${status}`
               ],
               function(err) {
                 if (err) {
+                  console.error(`記錄報價單狀態更新歷史失敗:`, err);
                   db.run('ROLLBACK');
                   return reject(err);
                 }
                 
                 db.run('COMMIT');
-                Quote.findById(id)
-                  .then(quote => resolve(quote))
-                  .catch(err => {
-                    db.run('ROLLBACK');
-                    reject(err);
-                  });
+                resolve(true);
               }
             );
           }
@@ -755,27 +838,6 @@ class Quote {
     });
   }
 
-  // 取得報價單項目
-  static getItems(quoteId) {
-    return new Promise((resolve, reject) => {
-      const db = getDb();
-      db.all(
-        `SELECT qi.*, p.name as product_name, p.sku as product_sku
-         FROM quote_items qi
-         LEFT JOIN products p ON qi.product_id = p.id
-         WHERE qi.quote_id = ?
-         ORDER BY qi.sort_order`,
-        [quoteId],
-        (err, rows) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(rows);
-        }
-      );
-    });
-  }
-
   // 取得報價單歷史
   static getHistory(quoteId) {
     return new Promise((resolve, reject) => {
@@ -801,19 +863,50 @@ class Quote {
   static getReportData(startDate, endDate) {
     return new Promise((resolve, reject) => {
       const db = getDb();
+      
+      // 格式化日期為字符串
+      let formattedStartDate = startDate;
+      let formattedEndDate = endDate;
+      
+      // 如果是Date對象，轉換為YYYY-MM-DD格式
+      if (startDate instanceof Date) {
+        formattedStartDate = startDate.toISOString().split('T')[0];
+      }
+      
+      if (endDate instanceof Date) {
+        // 將結束日期設為當天的23:59:59，以包含整天
+        formattedEndDate = endDate.toISOString().split('T')[0] + ' 23:59:59';
+      }
+      
+      console.log(`獲取報表數據 - 開始日期: ${formattedStartDate}, 結束日期: ${formattedEndDate}`);
+      
       db.all(
-        `SELECT q.*, c.name as customer_name, u.username as created_by_username
+        `SELECT q.*, c.name as customer_name, u.username as created_by_username,
+                (SELECT SUM(quantity * unit_price) FROM quote_items WHERE quote_id = q.id) as calculated_total
          FROM quotes q
-         JOIN customers c ON q.customer_id = c.id
-         JOIN users u ON q.created_by = u.id
-         WHERE q.issue_date BETWEEN ? AND ?
-         ORDER BY q.issue_date`,
-        [startDate, endDate],
+         LEFT JOIN customers c ON q.customer_id = c.id
+         LEFT JOIN users u ON q.created_by = u.id
+         WHERE q.issue_date >= ? AND q.issue_date <= ?
+         ORDER BY q.issue_date DESC`,
+        [formattedStartDate, formattedEndDate],
         (err, rows) => {
           if (err) {
+            console.error('獲取報表數據錯誤:', err);
             return reject(err);
           }
-          resolve(rows);
+          
+          console.log(`獲取到 ${rows.length} 筆報價單報表數據`);
+          
+          // 處理總金額計算
+          const processedRows = rows.map(row => {
+            // 如果沒有total或為0，使用calculated_total
+            if (!row.total || row.total === 0) {
+              row.total = row.calculated_total || 0;
+            }
+            return row;
+          });
+          
+          resolve(processedRows);
         }
       );
     });

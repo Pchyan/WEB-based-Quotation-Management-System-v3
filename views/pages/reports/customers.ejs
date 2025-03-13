@@ -36,11 +36,12 @@
           <input type="date" class="form-control" id="endDate" name="endDate" value="<%= endDate %>">
         </div>
         <div class="col-md-4">
-          <label for="sort" class="form-label">排序方式</label>
-          <select class="form-select" id="sort" name="sort">
-            <option value="amount" <%= sort === 'amount' ? 'selected' : '' %>>依總金額</option>
-            <option value="quotes" <%= sort === 'quotes' ? 'selected' : '' %>>依報價數量</option>
-            <option value="acceptance" <%= sort === 'acceptance' ? 'selected' : '' %>>依接受率</option>
+          <label for="sortBy" class="form-label">排序方式</label>
+          <select class="form-select" id="sortBy" name="sortBy">
+            <option value="amount" <%= sortBy === 'amount' ? 'selected' : '' %>>依總金額</option>
+            <option value="total" <%= sortBy === 'total' ? 'selected' : '' %>>依報價數量</option>
+            <option value="conversion" <%= sortBy === 'conversion' ? 'selected' : '' %>>依轉換率</option>
+            <option value="name" <%= sortBy === 'name' ? 'selected' : '' %>>依客戶名稱</option>
           </select>
         </div>
         <div class="col-12">
@@ -63,9 +64,9 @@
         <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
           <i class="bi bi-printer"></i> 列印報表
         </button>
-        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+        <a href="/reports/customers/export<%= startDate ? '?startDate=' + startDate : '' %><%= endDate ? '&endDate=' + endDate : '' %><%= sortBy ? '&sortBy=' + sortBy : '' %>" class="btn btn-sm btn-outline-success">
           <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
-        </button>
+        </a>
       </div>
     </div>
     <div class="card-body p-0">
@@ -97,17 +98,17 @@
                       <div><i class="bi bi-telephone-fill me-1"></i> <%= customer.phone %></div>
                     <% } %>
                   </td>
-                  <td><%= customer.totalQuotes %></td>
-                  <td><%= customer.acceptedQuotes %></td>
+                  <td><%= customer.totalQuotes || 0 %></td>
+                  <td><%= customer.acceptedQuotes || 0 %></td>
                   <td>
                     <div class="d-flex align-items-center">
                       <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                        <div class="progress-bar" role="progressbar" style="width: <%= customer.acceptanceRate %>%" aria-valuenow="<%= customer.acceptanceRate %>" aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress-bar" role="progressbar" style="width: <%= customer.acceptanceRate || 0 %>%" aria-valuenow="<%= customer.acceptanceRate || 0 %>" aria-valuemin="0" aria-valuemax="100"></div>
                       </div>
-                      <span><%= customer.acceptanceRate %>%</span>
+                      <span><%= customer.acceptanceRate || 0 %>%</span>
                     </div>
                   </td>
-                  <td>$<%= customer.totalAmount.toFixed(2) %></td>
+                  <td>$<%= (customer.totalAmount || 0).toFixed(2) %></td>
                   <td>
                     <div class="btn-group">
                       <a href="/customers/<%= customer.id %>" class="btn btn-sm btn-outline-secondary">

@@ -91,19 +91,19 @@
             <tbody>
               <% quotes.forEach(quote => { %>
                 <tr>
-                  <td><a href="/quotes/<%= quote.id %>">#<%= quote.id %></a></td>
-                  <td><%= quote.customerName %></td>
-                  <td><%= new Date(quote.quoteDate).toLocaleDateString() %></td>
-                  <td><%= new Date(quote.validUntil).toLocaleDateString() %></td>
-                  <td><%= quote.total.toFixed(2) %></td>
+                  <td><a href="/quotes/<%= quote.id %>">#<%= quote.quote_number || quote.id %></a></td>
+                  <td><%= quote.customer_name || '未知客戶' %></td>
+                  <td><%= quote.issue_date ? new Date(quote.issue_date).toLocaleDateString() : '未設定' %></td>
+                  <td><%= quote.valid_until ? new Date(quote.valid_until).toLocaleDateString() : '無限期' %></td>
+                  <td><%= typeof quote.total === 'number' ? parseFloat(quote.total).toLocaleString() : '0' %></td>
                   <td>
-                    <span class="badge status-<%= quote.status %>">
-                      <% if (quote.status === 'draft') { %>草稿
+                    <span class="badge status-<%= quote.status || 'draft' %>">
+                      <% if (!quote.status || quote.status === 'draft') { %>草稿
                       <% } else if (quote.status === 'sent') { %>已發送
                       <% } else if (quote.status === 'accepted') { %>已接受
                       <% } else if (quote.status === 'rejected') { %>已拒絕
                       <% } else if (quote.status === 'expired') { %>已過期
-                      <% } %>
+                      <% } else { %>未知狀態<% } %>
                     </span>
                   </td>
                   <td>

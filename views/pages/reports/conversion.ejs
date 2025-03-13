@@ -55,6 +55,62 @@
     </div>
   </div>
   
+  <!-- 總體統計卡片 -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title mb-0">總報價數</h5>
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="h2 mb-0"><%= totalStats.totalQuotes %></div>
+            <div class="icon-shape bg-light text-primary rounded">
+              <i class="bi bi-file-earmark-text"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title mb-0">已接受數</h5>
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="h2 mb-0"><%= totalStats.acceptedQuotes %></div>
+            <div class="icon-shape bg-light text-success rounded">
+              <i class="bi bi-check-circle"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title mb-0">轉換率</h5>
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="h2 mb-0"><%= totalStats.conversionRate %>%</div>
+            <div class="icon-shape bg-light text-info rounded">
+              <i class="bi bi-graph-up"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title mb-0">金額轉換率</h5>
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="h2 mb-0"><%= totalStats.amountConversionRate %>%</div>
+            <div class="icon-shape bg-light text-warning rounded">
+              <i class="bi bi-currency-dollar"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
   <!-- 圖表 -->
   <div class="row mb-4">
     <div class="col-md-6">
@@ -62,8 +118,8 @@
         <div class="card-header bg-white">
           <h5 class="card-title mb-0">報價轉換率趨勢</h5>
         </div>
-        <div class="card-body">
-          <canvas id="conversionRateChart" height="300"></canvas>
+        <div class="card-body" style="height: 300px; max-height: 300px;">
+          <canvas id="conversionRateChart"></canvas>
         </div>
       </div>
     </div>
@@ -72,8 +128,8 @@
         <div class="card-header bg-white">
           <h5 class="card-title mb-0">報價金額轉換率趨勢</h5>
         </div>
-        <div class="card-body">
-          <canvas id="amountConversionChart" height="300"></canvas>
+        <div class="card-body" style="height: 300px; max-height: 300px;">
+          <canvas id="amountConversionChart"></canvas>
         </div>
       </div>
     </div>
@@ -86,8 +142,8 @@
         <div class="card-header bg-white">
           <h5 class="card-title mb-0">報價狀態分布</h5>
         </div>
-        <div class="card-body">
-          <canvas id="statusDistributionChart" height="300"></canvas>
+        <div class="card-body" style="height: 300px; max-height: 300px;">
+          <canvas id="statusDistributionChart"></canvas>
         </div>
       </div>
     </div>
@@ -96,7 +152,7 @@
         <div class="card-header bg-white">
           <h5 class="card-title mb-0">當前轉換率統計</h5>
         </div>
-        <div class="card-body text-center">
+        <div class="card-body text-center" style="max-height: 300px; overflow-y: auto;">
           <% 
             let totalQuotes = 0;
             let totalAccepted = 0;
@@ -140,7 +196,7 @@
                 </div>
               </div>
               <div class="mt-2">
-                <small class="text-muted">總金額 $<%= totalAmount.toFixed(2) %>，<br>已接受 $<%= acceptedAmount.toFixed(2) %></small>
+                <small class="text-muted">總金額 $<%= formatCurrency(totalAmount) %>，<br>已接受 $<%= formatCurrency(acceptedAmount) %></small>
               </div>
             </div>
           </div>
@@ -149,77 +205,99 @@
     </div>
   </div>
   
-  <!-- 轉換率數據表格 -->
+  <!-- 轉換率表格部分 - 限制高度，添加滾動條 -->
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-      <h5 class="card-title mb-0">轉換率數據表</h5>
+      <h5 class="card-title mb-0">轉換率詳細數據</h5>
       <div>
         <button class="btn btn-sm btn-outline-primary" onclick="printReport()">
           <i class="bi bi-printer"></i> 列印報表
         </button>
-        <button class="btn btn-sm btn-outline-success" onclick="exportToExcel()">
+        <a href="/reports/conversion/export<%= startDate ? '?startDate=' + startDate : '' %><%= endDate ? '&endDate=' + endDate : '' %><%= period ? '&period=' + period : '' %>" class="btn btn-sm btn-outline-success">
           <i class="bi bi-file-earmark-excel"></i> 匯出 Excel
-        </button>
+        </a>
       </div>
     </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>時間段</th>
-              <th>報價數量</th>
-              <th>草稿</th>
-              <th>已發送</th>
-              <th>已接受</th>
-              <th>已拒絕</th>
-              <th>報價總額</th>
-              <th>接受金額</th>
-              <th>數量轉換率</th>
-              <th>金額轉換率</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% if (locals.conversionStats && conversionStats.length > 0) { %>
-              <% conversionStats.forEach(stat => { %>
+    <div class="card-body">
+      <% if (typeof conversionStats !== 'undefined' && conversionStats.length > 0) { %>
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="table table-hover table-sm">
+            <thead class="sticky-top bg-white">
+              <tr>
+                <th>時間段</th>
+                <th class="text-center">總報價數</th>
+                <th class="text-center">已接受數</th>
+                <th class="text-center">轉換率</th>
+                <th class="text-end">總金額</th>
+                <th class="text-end">已接受金額</th>
+                <th class="text-center">金額轉換率</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% conversionStats.forEach(function(stat) { %>
                 <tr>
                   <td><%= stat.period %></td>
-                  <td><%= stat.total %></td>
-                  <td><%= stat.draft %></td>
-                  <td><%= stat.sent %></td>
-                  <td><%= stat.accepted %></td>
-                  <td><%= stat.rejected %></td>
-                  <td>$<%= stat.amount.toFixed(2) %></td>
-                  <td>$<%= stat.acceptedAmount.toFixed(2) %></td>
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                        <div class="progress-bar" role="progressbar" style="width: <%= stat.conversionRate %>%" aria-valuenow="<%= stat.conversionRate %>" aria-valuemin="0" aria-valuemax="100"></div>
-                      </div>
-                      <span><%= stat.conversionRate %>%</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="d-flex align-items-center">
-                      <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: <%= stat.amountConversionRate %>%" aria-valuenow="<%= stat.amountConversionRate %>" aria-valuemin="0" aria-valuemax="100"></div>
-                      </div>
-                      <span><%= stat.amountConversionRate %>%</span>
-                    </div>
-                  </td>
+                  <td class="text-center"><%= stat.total %></td>
+                  <td class="text-center"><%= stat.accepted %></td>
+                  <td class="text-center"><%= stat.conversionRate %>%</td>
+                  <td class="text-end">$<%= formatCurrency(stat.amount) %></td>
+                  <td class="text-end">$<%= formatCurrency(stat.acceptedAmount) %></td>
+                  <td class="text-center"><%= stat.amountConversionRate %>%</td>
                 </tr>
               <% }); %>
-            <% } else { %>
-              <tr>
-                <td colspan="10" class="text-center py-4">
-                  <div class="alert alert-info mb-0">
-                    <i class="bi bi-info-circle me-2"></i> 沒有符合條件的轉換率數據
-                  </div>
-                </td>
-              </tr>
-            <% } %>
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <div class="alert alert-info">
+          此時間範圍內沒有報價單數據
+        </div>
+      <% } %>
+    </div>
+  </div>
+  
+  <!-- 詳細狀態統計部分 - 折疊面板，限制高度 -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">狀態詳細數據</h5>
+      <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#statusDetailCollapse" aria-expanded="false" aria-controls="statusDetailCollapse">
+        <i class="bi bi-arrows-expand"></i> 展開/收起
+      </button>
+    </div>
+    <div class="collapse" id="statusDetailCollapse">
+      <div class="card-body">
+        <% if (typeof conversionStats !== 'undefined' && conversionStats.length > 0) { %>
+          <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+            <table class="table table-hover table-sm">
+              <thead class="sticky-top bg-white">
+                <tr>
+                  <th>時間段</th>
+                  <th class="text-center">總數</th>
+                  <th class="text-center">草稿</th>
+                  <th class="text-center">已發送</th>
+                  <th class="text-center">已接受</th>
+                  <th class="text-center">已拒絕</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% conversionStats.forEach(function(stat) { %>
+                  <tr>
+                    <td><%= stat.period %></td>
+                    <td class="text-center"><%= stat.total %></td>
+                    <td class="text-center"><%= typeof stat.draft === 'number' ? stat.draft : 0 %></td>
+                    <td class="text-center"><%= typeof stat.sent === 'number' ? stat.sent : 0 %></td>
+                    <td class="text-center"><%= typeof stat.accepted === 'number' ? stat.accepted : 0 %></td>
+                    <td class="text-center"><%= typeof stat.rejected === 'number' ? stat.rejected : 0 %></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="alert alert-info">
+            此時間範圍內沒有報價單數據
+          </div>
+        <% } %>
       </div>
     </div>
   </div>
@@ -268,7 +346,8 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true,
+          aspectRatio: 2,
           scales: {
             y: {
               beginAtZero: true,
@@ -301,7 +380,8 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true,
+          aspectRatio: 2,
           scales: {
             y: {
               beginAtZero: true,
@@ -345,7 +425,8 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true,
+          aspectRatio: 1.5,
           plugins: {
             tooltip: {
               callbacks: {
@@ -387,7 +468,8 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true,
+          aspectRatio: 1,
           cutout: '75%',
           plugins: {
             legend: {
@@ -422,7 +504,8 @@
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          maintainAspectRatio: true,
+          aspectRatio: 1,
           cutout: '75%',
           plugins: {
             legend: {
@@ -442,6 +525,14 @@
   // 匯出 Excel（實際應用中應連接到後端 API）
   function exportToExcel() {
     alert('此功能需要後端支援，將產生 Excel 檔案下載');
+  }
+
+  // 添加貨幣格式化函數
+  function formatCurrency(value) {
+    if (typeof value !== 'number') {
+      value = parseFloat(value) || 0;
+    }
+    return value.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
   }
 </script>
 

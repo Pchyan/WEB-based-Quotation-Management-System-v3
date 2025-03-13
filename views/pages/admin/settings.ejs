@@ -28,6 +28,39 @@
             </div>
             
             <hr class="my-4">
+            <h5>公司資訊設定</h5>
+            <p class="text-muted mb-3">
+              這些資訊將顯示在報價單、發票等文件中。
+            </p>
+            
+            <div class="mb-3">
+              <label for="companyName" class="form-label">公司名稱</label>
+              <input type="text" class="form-control" id="companyName" name="companyName" value="<%= locals.companyName || '貴公司企業有限公司' %>">
+            </div>
+            
+            <div class="mb-3">
+              <label for="companyAddress" class="form-label">公司地址</label>
+              <input type="text" class="form-control" id="companyAddress" name="companyAddress" value="<%= locals.companyAddress || '台北市中正區忠孝東路100號' %>">
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="companyPhone" class="form-label">電話</label>
+                <input type="text" class="form-control" id="companyPhone" name="companyPhone" value="<%= locals.companyPhone || '(02) 2345-6789' %>">
+              </div>
+              
+              <div class="col-md-6 mb-3">
+                <label for="companyEmail" class="form-label">電子郵件</label>
+                <input type="email" class="form-control" id="companyEmail" name="companyEmail" value="<%= locals.companyEmail || 'contact@company.com.tw' %>">
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="companyWebsite" class="form-label">網站</label>
+              <input type="text" class="form-control" id="companyWebsite" name="companyWebsite" value="<%= locals.companyWebsite || 'www.company.com.tw' %>">
+            </div>
+            
+            <hr class="my-4">
             <h5>系統設定說明</h5>
             <p class="text-muted mb-3">
               這些設定會影響所有使用者的體驗。修改應用程式名稱後，所有用戶在頁面重新載入時將看到新的名稱。

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登入 - 羽台資訊報價管理系統</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Preferences CSS -->
+  <link rel="stylesheet" href="/css/preferences.css">
+  
+  <!-- 使用者偏好設定 -->
+  
+  
+  <!-- Preferences JS -->
+  <script src="/js/preferences.js"></script>
+</head>
+<body>
+  <div class="wrapper"> 
+
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-header bg-primary text-white text-center">
+          <h4>羽台資訊報價管理系統 登入</h4>
+        </div>
+        <div class="card-body">
+          
+          
+          <form action="/auth/login" method="POST">
+            <div class="form-group">
+              <label for="username">使用者名稱</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-user"></i></span>
+                </div>
+                <input type="text" class="form-control" id="username" name="username" value="" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="password">密碼</label>
+              <div class="input-group">
+                <div class="input-group-prepend">
+                  <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                </div>
+                <input type="password" class="form-control" id="password" name="password" required>
+              </div>
+              <div class="text-right mt-1">
+                <small><a href="/auth/forgot-password">忘記密碼?</a></small>
+              </div>
+            </div>
+            <div class="form-group">
+              <button type="submit" class="btn btn-primary btn-block">登入</button>
+            </div>
+          </form>
+          <div class="text-center mt-3">
+            <p>還沒有帳號？ <a href="/auth/register">立即註冊</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  </div><!-- End of wrapper -->
+
+  <footer class="footer mt-auto py-3 bg-light">
+    <div class="container text-center">
+      <span class="text-muted">&copy; 2025 報價管理系統 | 版本 1.0.0</span>
+    </div>
+  </footer>
+
+  <!-- jQuery and Bootstrap Bundle (includes Popper) -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Custom JavaScript -->
+  <script src="/js/main.js"></script>
+</body>
+</html>  

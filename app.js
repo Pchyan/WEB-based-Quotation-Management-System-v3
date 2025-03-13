@@ -81,6 +81,8 @@ app.use((req, res, next) => {
   
   // 重新添加其他全局變量
   res.locals.isAuthenticated = req.session.isAuthenticated || false;
+  
+  // 每次請求時讀取最新的環境變數，確保 APP_NAME 變更能立即生效
   res.locals.appName = process.env.APP_NAME || '報價管理系統';
   
   // 記錄請求資訊，便於調試

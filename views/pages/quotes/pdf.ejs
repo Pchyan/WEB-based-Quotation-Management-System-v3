@@ -175,11 +175,11 @@
           <% quote.items.forEach((item, index) => { %>
             <tr>
               <td><%= index + 1 %></td>
-              <td><%= item.name %></td>
-              <td>$<%= item.price.toFixed(2) %></td>
-              <td><%= item.quantity %></td>
+              <td><%= item.product_name || item.description || '未命名項目' %></td>
+              <td>$<%= typeof item.unit_price === 'number' ? item.unit_price.toFixed(2) : (typeof item.price === 'number' ? item.price.toFixed(2) : '0.00') %></td>
+              <td><%= typeof item.quantity === 'number' ? item.quantity : 0 %></td>
               <td><%= item.unit || '個' %></td>
-              <td class="text-right">$<%= (item.price * item.quantity).toFixed(2) %></td>
+              <td class="text-right">$<%= typeof item.amount === 'number' ? item.amount.toFixed(2) : (typeof item.unit_price === 'number' && typeof item.quantity === 'number' ? (item.unit_price * item.quantity).toFixed(2) : '0.00') %></td>
             </tr>
           <% }); %>
         <% } else { %>
@@ -194,23 +194,28 @@
       <table>
         <tr>
           <th>小計</th>
-          <td class="text-right">$<%= quote.subtotal.toFixed(2) %></td>
+          <td class="text-right">$<%= typeof quote.subtotal === 'number' ? quote.subtotal.toFixed(2) : '0.00' %></td>
         </tr>
-        <% if (quote.discountRate > 0) { %>
+        <% if (quote.discount_type === 'percentage' && typeof quote.discount_value === 'number' && quote.discount_value > 0) { %>
           <tr>
-            <th>折扣 (<%= quote.discountRate %>%)</th>
-            <td class="text-right">-$<%= quote.discountAmount.toFixed(2) %></td>
+            <th>折扣 (<%= quote.discount_value %>%)</th>
+            <td class="text-right">-$<%= ((typeof quote.subtotal === 'number' ? quote.subtotal : 0) * quote.discount_value / 100).toFixed(2) %></td>
+          </tr>
+        <% } else if (typeof quote.discount_value === 'number' && quote.discount_value > 0) { %>
+          <tr>
+            <th>折扣</th>
+            <td class="text-right">-$<%= quote.discount_value.toFixed(2) %></td>
           </tr>
         <% } %>
-        <% if (quote.taxRate > 0) { %>
+        <% if (typeof quote.tax_rate === 'number' && quote.tax_rate > 0) { %>
           <tr>
-            <th>稅額 (<%= quote.taxRate %>%)</th>
-            <td class="text-right">$<%= quote.taxAmount.toFixed(2) %></td>
+            <th>稅額 (<%= quote.tax_rate %>%)</th>
+            <td class="text-right">$<%= typeof quote.tax_amount === 'number' ? quote.tax_amount.toFixed(2) : ((typeof quote.subtotal === 'number' ? quote.subtotal : 0) * quote.tax_rate / 100).toFixed(2) %></td>
           </tr>
         <% } %>
         <tr class="grand-total">
           <th>總計</th>
-          <td class="text-right">$<%= quote.total.toFixed(2) %></td>
+          <td class="text-right">$<%= typeof quote.total === 'number' ? quote.total.toFixed(2) : '0.00' %></td>
         </tr>
       </table>
     </div>
@@ -228,7 +233,7 @@
     </div>
 
     <div class="footer">
-      <p>此報價單由 <%= company.name %> 系統自動生成於 <%= formatDateTime(new Date()) %></p>
+      <p>此報價單由 <%= company.name %> 系統自動生成於 <%= new Date().toLocaleString('zh-TW') %></p>
       <p>如有任何疑問，請聯絡我們：<%= company.email %> | <%= company.phone %></p>
     </div>
   </div>

@@ -10,6 +10,30 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 
+// 計算相關輔助函數
+function calculateSubtotal(items) {
+  return items.reduce((total, item) => {
+    const quantity = parseFloat(item.quantity) || 0;
+    const price = parseFloat(item.price) || 0;
+    return total + (quantity * price);
+  }, 0);
+}
+
+function calculateTaxAmount(items, taxRate) {
+  const subtotal = calculateSubtotal(items);
+  return subtotal * (parseFloat(taxRate) || 0) / 100;
+}
+
+function calculateTotal(items, discountType, discountValue, taxRate) {
+  const subtotal = calculateSubtotal(items);
+  const discount = discountType === 'percentage' 
+    ? subtotal * (parseFloat(discountValue) || 0) / 100 
+    : (parseFloat(discountValue) || 0);
+  const afterDiscount = subtotal - discount;
+  const tax = afterDiscount * (parseFloat(taxRate) || 0) / 100;
+  return afterDiscount + tax;
+}
+
 // 配置文件上傳
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
@@ -83,12 +107,25 @@ const router = express.Router();
 // 報價單列表頁面
 router.get('/', isAuthenticated, async (req, res) => {
   try {
+    console.log('開始獲取報價單列表...');
     const quotes = await Quote.getAll();
+    console.log(`成功獲取 ${quotes.length} 筆報價單數據`);
+    
+    // 檢查每個報價單的必要欄位
+    const validQuotes = quotes.filter(quote => {
+      const hasRequiredFields = quote.id && quote.customer_name;
+      if (!hasRequiredFields) {
+        console.warn('發現缺少必要欄位的報價單:', quote);
+      }
+      return hasRequiredFields;
+    });
+    
+    console.log(`過濾後有效的報價單數量: ${validQuotes.length}`);
     
     res.render('pages/quotes/index', {
       title: '報價單管理',
       active: 'quotes',
-      quotes
+      quotes: validQuotes
     });
   } catch (err) {
     console.error('取得報價單列表錯誤:', err);
@@ -127,7 +164,7 @@ router.get('/create', isAuthenticated, async (req, res) => {
 // 處理新增報價單請求
 router.post('/create', [
   body('customerId').notEmpty().withMessage('請選擇客戶'),
-  body('quoteDate').isDate().withMessage('請輸入有效的報價日期'),
+  body('issueDate').isDate().withMessage('請輸入有效的報價日期'),
   body('validUntil').isDate().withMessage('請輸入有效的有效期限'),
   body('items').isArray().withMessage('至少需要一個項目'),
   body('items.*.productId').notEmpty().withMessage('請選擇產品'),
@@ -161,25 +198,51 @@ router.post('/create', [
 
   try {
     // 創建報價單
+    const quoteNumber = await Quote.generateQuoteNumber();
+    
     const quoteData = {
+      quoteNumber: quoteNumber,
       customerId: req.body.customerId,
-      quoteDate: req.body.quoteDate,
+      title: req.body.title || `報價單 ${quoteNumber}`,
+      description: req.body.description || '',
+      issueDate: req.body.issueDate,
       validUntil: req.body.validUntil,
-      terms: req.body.terms,
-      notes: req.body.notes,
       status: 'draft', // 預設為草稿狀態
+      subtotal: calculateSubtotal(req.body.items),
+      discountType: req.body.discountType || null,
+      discountValue: req.body.discountValue || 0,
+      taxRate: req.body.taxRate || 0,
+      taxAmount: calculateTaxAmount(req.body.items, req.body.taxRate),
+      total: calculateTotal(req.body.items, req.body.discountType, req.body.discountValue, req.body.taxRate),
+      notes: req.body.notes || '',
+      terms: req.body.terms || '',
+      createdBy: req.session.user.id,
       items: req.body.items.map(item => ({
-        productId: item.productId,
-        description: item.description,
-        quantity: item.quantity,
-        price: item.price,
-        discount: item.discount || 0
+        productId: item.productId || null,
+        description: item.description || '',
+        quantity: parseFloat(item.quantity) || 0,
+        unitPrice: parseFloat(item.price) || 0,
+        discount: parseFloat(item.discount) || 0,
+        amount: (parseFloat(item.quantity) * parseFloat(item.price)) - parseFloat(item.discount) || 0
       }))
     };
 
-    const quoteId = await Quote.create(quoteData);
+    console.log('準備創建報價單，表單數據:', req.body);
+    console.log('處理後的報價單數據:', quoteData);
     
-    res.redirect(`/quotes/${quoteId}`);
+    const quote = await Quote.create(quoteData);
+    console.log('報價單創建成功, ID:', quote.id, '報價單號:', quote.quote_number);
+    
+    // 確認報價單已經創建
+    const savedQuote = await Quote.findById(quote.id);
+    console.log('從資料庫驗證報價單:', savedQuote ? `已找到 ID ${savedQuote.id}` : '未找到');
+    
+    // 重新載入報價單列表確保更新
+    const allQuotes = await Quote.getAll();
+    console.log(`目前資料庫中有 ${allQuotes.length} 筆報價單記錄`);
+    
+    req.flash('success', '報價單創建成功！');
+    res.redirect(`/quotes/${quote.id}`);
   } catch (err) {
     console.error('創建報價單錯誤:', err);
     try {
@@ -217,13 +280,81 @@ router.get('/edit/:id', isAuthenticated, async (req, res) => {
     const customers = await Customer.getAll();
     const products = await Product.getAll();
     
+    // 獲取報價單項目
+    const items = await Quote.getItems(quote.id);
+    console.log(`編輯頁面 - 獲取到 ${items.length} 個報價單項目`);
+    
+    // 計算總計金額
+    let subtotal = 0;
+    items.forEach(item => {
+      const quantity = parseFloat(item.quantity) || 0;
+      const price = parseFloat(item.unit_price) || 0;
+      subtotal += quantity * price;
+    });
+    
+    // 取得折扣和稅率
+    const discountType = quote.discount_type || 'amount';
+    const discountValue = parseFloat(quote.discount_value) || 0;
+    const taxRate = parseFloat(quote.tax_rate) || 0;
+    
+    // 計算折扣金額
+    let discountAmount = 0;
+    if (discountType === 'percentage') {
+      discountAmount = subtotal * (discountValue / 100);
+    } else {
+      discountAmount = discountValue;
+    }
+    
+    // 稅前金額
+    const afterDiscount = subtotal - discountAmount;
+    
+    // 計算稅額
+    const taxAmount = afterDiscount * (taxRate / 100);
+    
+    // 總計
+    const total = afterDiscount + taxAmount;
+    
+    // 準備供編輯頁面使用的數據
+    const preparedQuote = {
+      ...quote,
+      quoteNumber: quote.quote_number,
+      customerId: quote.customer_id,
+      quoteDate: quote.issue_date || '',
+      validUntil: quote.valid_until || '',
+      items: items || [],
+      subtotal: subtotal,
+      discountType: discountType,
+      discountValue: discountValue,
+      discountAmount: discountAmount,
+      discountRate: discountType === 'percentage' ? discountValue : 0,
+      taxRate: taxRate,
+      taxAmount: taxAmount,
+      total: total
+    };
+    
+    console.log('編輯頁面 - 報價日期:', preparedQuote.quoteDate);
+    console.log('編輯頁面 - 有效期限:', preparedQuote.validUntil);
+    
+    // 格式化日期輔助函數
+    const formatDateForInput = (dateString) => {
+      if (!dateString) return '';
+      try {
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+      } catch (e) {
+        console.error('日期格式化錯誤:', e);
+        return '';
+      }
+    };
+    
     res.render('pages/quotes/edit', {
       title: '編輯報價單',
       active: 'quotes',
       error: null,
-      quote,
+      quote: preparedQuote,
       customers,
-      products
+      products,
+      formatDateForInput
     });
   } catch (err) {
     console.error('取得報價單資料錯誤:', err);
@@ -333,8 +464,10 @@ router.post('/edit/:id', [
 // 產生報價單 PDF
 router.get('/pdf/:id', isAuthenticated, async (req, res) => {
   try {
+    console.log(`正在產生報價單 ID: ${req.params.id} 的 PDF`);
     const quote = await Quote.findById(req.params.id);
     if (!quote) {
+      console.log(`找不到 ID 為 ${req.params.id} 的報價單`);
       return res.status(404).render('pages/error', {
         title: '找不到報價單',
         message: '找不到指定的報價單'
@@ -342,13 +475,84 @@ router.get('/pdf/:id', isAuthenticated, async (req, res) => {
     }
 
     // 取得客戶資料
-    const customer = await Customer.findById(quote.customerId);
+    const customer = await Customer.findById(quote.customer_id);
+    if (!customer) {
+      console.log(`警告：找不到報價單關聯的客戶 ID: ${quote.customer_id}`);
+    }
+    
+    // 取得報價單項目
+    const items = await Quote.getItems(quote.id);
+    console.log(`獲取到 ${items.length} 個報價單項目`);
+    
+    // 從設定檔讀取公司資訊
+    let company = {
+      name: '貴公司企業有限公司',
+      address: '台北市中正區忠孝東路100號',
+      phone: '(02) 2345-6789',
+      email: 'contact@company.com.tw',
+      website: 'www.company.com.tw'
+    };
+    
+    try {
+      const settingsPath = path.resolve(process.cwd(), 'company_settings.json');
+      if (fs.existsSync(settingsPath)) {
+        const settingsData = fs.readFileSync(settingsPath, 'utf8');
+        const companySettings = JSON.parse(settingsData);
+        company = {
+          name: companySettings.name || company.name,
+          address: companySettings.address || company.address,
+          phone: companySettings.phone || company.phone,
+          email: companySettings.email || company.email,
+          website: companySettings.website || company.website
+        };
+      }
+    } catch (error) {
+      console.error('讀取公司設定時發生錯誤:', error);
+    }
+    
+    // 準備報價單數據
+    const preparedQuote = {
+      ...quote,
+      quoteNumber: quote.quote_number,
+      quoteDate: quote.issue_date,
+      validUntil: quote.valid_until,
+      items: items || [],
+      customer: customer || { name: '未知客戶' }
+    };
+    
+    console.log('PDF - 報價單數據已準備完成');
+    
+    // 提供格式化輔助函數
+    const formatDate = (dateString) => {
+      if (!dateString) return '未設定';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('zh-TW');
+      } catch (e) {
+        return '無效日期';
+      }
+    };
+
+    const getStatusText = (status) => {
+      switch (status) {
+        case 'draft': return '草稿';
+        case 'sent': return '已發送';
+        case 'accepted': return '已接受';
+        case 'rejected': return '已拒絕';
+        case 'expired': return '已過期';
+        default: return '未知狀態';
+      }
+    };
     
     // 渲染PDF模板
     res.render('pages/quotes/pdf', {
       layout: 'pdf', // 使用PDF專用布局
-      quote,
-      customer
+      quote: preparedQuote,
+      customer,
+      company,
+      items,
+      formatDate,
+      getStatusText
     });
   } catch (err) {
     console.error('產生報價單PDF錯誤:', err);
@@ -406,25 +610,40 @@ router.get('/copy/:id', isAuthenticated, async (req, res) => {
 // 更新報價單狀態
 router.post('/status/:id', isAuthenticated, async (req, res) => {
   try {
-    // 檢查報價單是否存在
-    const quote = await Quote.findById(req.params.id);
-    if (!quote) {
-      return res.status(404).json({ success: false, message: '找不到報價單' });
-    }
-
-    // 檢查狀態是否有效
-    const validStatuses = ['draft', 'sent', 'accepted', 'rejected', 'expired'];
-    if (!validStatuses.includes(req.body.status)) {
-      return res.status(400).json({ success: false, message: '無效的狀態' });
-    }
-
-    // 更新狀態
-    await Quote.updateStatus(req.params.id, req.body.status);
+    const { id } = req.params;
+    const { status } = req.body;
     
-    res.json({ success: true });
+    console.log(`正在更新報價單 ID: ${id} 的狀態為: ${status}`);
+    
+    // 驗證狀態值
+    const validStatuses = ['draft', 'sent', 'accepted', 'rejected', 'expired'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).render('pages/error', {
+        title: '無效的請求',
+        message: '無效的報價單狀態值'
+      });
+    }
+    
+    // 獲取報價單
+    const quote = await Quote.findById(id);
+    if (!quote) {
+      return res.status(404).render('pages/error', {
+        title: '找不到報價單',
+        message: '找不到指定的報價單'
+      });
+    }
+    
+    // 更新狀態
+    await Quote.updateStatus(id, status, req.session.user.id);
+    
+    // 重定向回報價單詳情頁
+    res.redirect(`/quotes/${id}`);
   } catch (err) {
     console.error('更新報價單狀態錯誤:', err);
-    res.status(500).json({ success: false, message: err.message || '更新報價單狀態時發生錯誤' });
+    res.status(500).render('pages/error', {
+      title: '伺服器錯誤',
+      message: '更新報價單狀態時發生錯誤: ' + (err.message || '未知錯誤')
+    });
   }
 });
 
@@ -448,7 +667,6 @@ router.post('/delete/:id', isAuthenticated, async (req, res) => {
 });
 
 // 搜尋報價單
-// 搜尋報價單
 router.get('/search', isAuthenticated, async (req, res) => {
   try {
     const { q: query, status, customer, startDate, endDate, page = 1, limit = 10 } = req.query;
@@ -464,7 +682,36 @@ router.get('/search', isAuthenticated, async (req, res) => {
       startDate: startDate || '',
       endDate: endDate || '',
       title: '報價單搜尋結果',
-      active: 'quotes'
+      active: 'quotes',
+      formatDate: (dateString) => {
+        if (!dateString) return '未設定';
+        try {
+          const date = new Date(dateString);
+          return date.toLocaleDateString('zh-TW');
+        } catch (e) {
+          return '無效日期';
+        }
+      },
+      getStatusBadgeClass: (status) => {
+        switch(status) {
+          case 'draft': return 'bg-secondary';
+          case 'sent': return 'bg-primary';
+          case 'accepted': return 'bg-success';
+          case 'rejected': return 'bg-danger';
+          case 'expired': return 'bg-warning';
+          default: return 'bg-secondary';
+        }
+      },
+      getStatusText: (status) => {
+        switch(status) {
+          case 'draft': return '草稿';
+          case 'sent': return '已發送';
+          case 'accepted': return '已接受';
+          case 'rejected': return '已拒絕';
+          case 'expired': return '已過期';
+          default: return '未知';
+        }
+      }
     });
   } catch (error) {
     console.error('搜尋報價單時發生錯誤:', error);
@@ -695,28 +942,96 @@ function parseExcel(filePath) {
 // 報價單詳情頁面 - 確保在特定路由後面
 router.get('/:id', isAuthenticated, async (req, res) => {
   try {
+    console.log(`正在獲取報價單 ID: ${req.params.id} 的詳情`);
     const quote = await Quote.findById(req.params.id);
+    
     if (!quote) {
+      console.log(`找不到 ID 為 ${req.params.id} 的報價單`);
       return res.status(404).render('pages/error', {
         title: '找不到報價單',
         message: '找不到指定的報價單'
       });
     }
 
+    console.log(`成功獲取報價單: ${quote.id}, 客戶ID: ${quote.customer_id}`);
+
+    // 取得報價單項目
+    const items = await Quote.getItems(quote.id);
+    console.log(`獲取到 ${items.length} 個報價單項目`);
+
     // 取得客戶資料
-    const customer = await Customer.findById(quote.customerId);
+    const customer = await Customer.findById(quote.customer_id);
+    if (!customer) {
+      console.log(`警告：找不到報價單關聯的客戶 ID: ${quote.customer_id}`);
+    }
     
-    res.render('pages/quotes/view', {
-      title: `報價單 #${quote.id}`,
+    // 提供格式化輔助函數
+    const formatDate = (dateString) => {
+      if (!dateString) return '未設定';
+      try {
+        return new Date(dateString).toLocaleDateString();
+      } catch (e) {
+        return '無效日期';
+      }
+    };
+
+    const formatDateTime = (dateTimeString) => {
+      if (!dateTimeString) return '未設定';
+      try {
+        return new Date(dateTimeString).toLocaleString();
+      } catch (e) {
+        return '無效日期時間';
+      }
+    };
+
+    const getStatusText = (status) => {
+      switch (status) {
+        case 'draft': return '草稿';
+        case 'sent': return '已發送';
+        case 'accepted': return '已接受';
+        case 'rejected': return '已拒絕';
+        case 'expired': return '已過期';
+        default: return '未知狀態';
+      }
+    };
+
+    const getStatusBadgeClass = (status) => {
+      switch (status) {
+        case 'draft': return 'bg-secondary';
+        case 'sent': return 'bg-primary';
+        case 'accepted': return 'bg-success';
+        case 'rejected': return 'bg-danger';
+        case 'expired': return 'bg-warning';
+        default: return 'bg-secondary';
+      }
+    };
+    
+    // 整合數據
+    const viewData = {
+      title: `報價單 #${quote.quote_number || quote.id}`,
       active: 'quotes',
-      quote,
-      customer
-    });
+      quote: {
+        ...quote,
+        items: items,
+        issueDate: quote.issue_date,
+        validUntil: quote.valid_until,
+        quoteDate: quote.issue_date,
+        customer: customer || { name: '未知客戶' },
+        createdAt: quote.created_at,
+        updatedAt: quote.updated_at
+      },
+      formatDate,
+      formatDateTime,
+      getStatusText,
+      getStatusBadgeClass
+    };
+
+    res.render('pages/quotes/view', viewData);
   } catch (err) {
     console.error('取得報價單詳情錯誤:', err);
     res.status(500).render('pages/error', {
       title: '伺服器錯誤',
-      message: '取得報價單詳情時發生錯誤'
+      message: '取得報價單詳情時發生錯誤: ' + (err.message || '未知錯誤')
     });
   }
 });
